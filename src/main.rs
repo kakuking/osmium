@@ -1,3 +1,13 @@
+use crate::core::app::Application;
+
+pub mod core;
+
 fn main() {
-    println!("Hello, Osmium!");
+    let mut app = Application::init(true);
+
+    unsafe {
+        app.run();
+    }
+    
+    println!("No errors occured!");
 }
