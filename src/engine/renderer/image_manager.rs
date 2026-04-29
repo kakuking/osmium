@@ -1,6 +1,20 @@
 use std::sync::Arc;
 
-use vulkano::{format::Format, image::{Image, ImageCreateInfo, ImageType, ImageUsage, view::ImageView}, memory::allocator::{AllocationCreateInfo, MemoryAllocator, MemoryTypeFilter}};
+use vulkano::{
+    format::Format, 
+    image::{
+        Image, 
+        ImageCreateInfo, 
+        ImageType, 
+        ImageUsage, 
+        view::ImageView
+    }, 
+    memory::allocator::{
+        AllocationCreateInfo, 
+        MemoryAllocator, 
+        MemoryTypeFilter
+    }
+};
 
 pub struct ImageManager {
     pub memory_allocator: Arc<dyn MemoryAllocator>,

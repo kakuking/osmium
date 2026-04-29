@@ -1,21 +1,11 @@
-use winit::event_loop::EventLoop;
+use crate::engine::app::OsmiumEngine;
 
-use crate::core::app::Application;
-
-pub mod core;
+pub mod engine;
 
 fn main() {
-    let event_loop = EventLoop::new();
-    let mut app = Application::init(
-        &event_loop,
-        true
-    );
+    let app = OsmiumEngine::init();
+    
     unsafe {
-        let mut render_data = app.begin();
-        event_loop.run(
-            move |event, _, control_flow| {
-                app.handle_event(event, control_flow, &mut render_data);
-            }
-        )
-    }    
+        app.run();
+    }
 }

@@ -1,6 +1,19 @@
 use std::{fmt::Debug, sync::Arc};
 
-use vulkano::{buffer::{Buffer, BufferContents, BufferCreateInfo, BufferUsage, Subbuffer}, memory::allocator::{AllocationCreateInfo, MemoryAllocator, MemoryTypeFilter}};
+use vulkano::{
+    buffer::{
+        Buffer, 
+        BufferContents, 
+        BufferCreateInfo, 
+        BufferUsage, 
+        Subbuffer
+    }, 
+    memory::allocator::{
+        AllocationCreateInfo, 
+        MemoryAllocator, 
+        MemoryTypeFilter
+    }
+};
 
 pub struct BufferManager {
     pub memory_allocator: Arc<dyn MemoryAllocator>,
@@ -43,7 +56,7 @@ impl BufferManager {
     }
 
     pub fn create_buffer_from_iter<T, I>(
-        &mut self, 
+        &self, 
         iter: I,
         usage: Option<BufferUsage>,
         memory_type_filter: Option<MemoryTypeFilter>

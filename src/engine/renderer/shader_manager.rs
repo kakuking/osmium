@@ -1,6 +1,13 @@
 use std::{fs, sync::Arc};
 
-use vulkano::{device::Device, shader::{ShaderModule, ShaderModuleCreateInfo}};
+use shaderc::ShaderKind;
+use vulkano::{
+    device::Device, 
+    shader::{
+        ShaderModule, 
+        ShaderModuleCreateInfo
+    }
+};
 
 pub struct ShaderManager {
     device: Arc<Device>,
@@ -40,29 +47,16 @@ impl ShaderManager {
         }.expect("Could not create shader module")
     }
 
-    pub unsafe fn create_compute_shader(&self, filepath: &str) -> Arc<ShaderModule> {
+    pub unsafe fn 
+    create_shader(
+        &self, 
+        filepath: &str,
+        kind: ShaderKind
+    ) -> Arc<ShaderModule> {
         unsafe {
             self.compile_glsl(
                 filepath, 
-                shaderc::ShaderKind::Compute
-            )
-        }
-    }
-
-    pub unsafe fn create_vertex_shader(&self, filepath: &str) -> Arc<ShaderModule> {
-        unsafe {
-            self.compile_glsl(
-                filepath, 
-                shaderc::ShaderKind::Vertex
-            )
-        }
-    }
-
-    pub unsafe fn create_fragment_shader(&self, filepath: &str) -> Arc<ShaderModule> {
-        unsafe {
-            self.compile_glsl(
-                filepath, 
-                shaderc::ShaderKind::Fragment
+                kind
             )
         }
     }

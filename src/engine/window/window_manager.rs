@@ -1,25 +1,41 @@
 use std::sync::Arc;
 
-use vulkano::{instance::{Instance, InstanceExtensions}, swapchain::Surface};
-use winit::{event_loop::EventLoop, window::{Window, WindowBuilder}};
+use vulkano::{
+    instance::{Instance, InstanceExtensions}, 
+    swapchain::Surface
+};
+
+use winit::{
+    dpi::{PhysicalSize}, event_loop::EventLoop, 
+    window::{
+        Window, 
+        WindowBuilder
+    }
+};
 
 pub struct WindowManager {
     window: Arc<Window>,
-    required_extensions: InstanceExtensions,
+    enabled_extensions: InstanceExtensions,
     surface: Option<Arc<Surface>>,
 }
 
 impl WindowManager {
     pub fn init(event_loop: &EventLoop<()>) -> Self {
-        let window: Arc<Window> = Arc::new(
-            WindowBuilder::new()
-                .build(event_loop)
-                .unwrap()
+        let window: Window = WindowBuilder::new()
+            .with_title("Osmium")
+            .with_inner_size(PhysicalSize::new(
+                1024, 1024
+            ))
+            .build(event_loop)
+            .unwrap();
+
+        let enabled_extensions: InstanceExtensions = Surface::required_extensions(
+            event_loop
         );
 
         Self {
-            window,
-            required_extensions: Surface::required_extensions(event_loop),
+            window: Arc::new(window),
+            enabled_extensions,
             surface: None,
         }
     }
@@ -34,7 +50,7 @@ impl WindowManager {
     }
 
     pub fn get_required_extensions(&self) -> InstanceExtensions {
-        self.required_extensions.clone()
+        self.enabled_extensions.clone()
     }
 
     pub fn get_surface(&self) -> Arc<Surface> {
