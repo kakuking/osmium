@@ -14,19 +14,13 @@ use vulkano::{
     }, device::Device, format::{ClearValue, Format}, image::SampleCount, memory::allocator::MemoryTypeFilter, pipeline::{
         GraphicsPipeline, PipelineLayout, PipelineShaderStageCreateInfo, 
         graphics::{
-            GraphicsPipelineCreateInfo, 
-            color_blend::{
+            GraphicsPipelineCreateInfo, color_blend::{
                 ColorBlendAttachmentState, 
                 ColorBlendState
-            }, 
-            input_assembly::InputAssemblyState, 
-            multisample::MultisampleState, 
-            rasterization::RasterizationState, 
-            vertex_input::{
+            }, depth_stencil::{DepthState, DepthStencilState}, input_assembly::InputAssemblyState, multisample::MultisampleState, rasterization::RasterizationState, vertex_input::{
                 Vertex,
                 VertexDefinition
-            }, 
-            viewport::{
+            }, viewport::{
                 Viewport, 
                 ViewportState
             }
@@ -163,7 +157,7 @@ impl TriangleRenderObject {
         let depth = config.render_pass.depth_enabled;
         let msaa = config.render_pass.samples;
 
-        let clear_color = [0.1, 0.1, 0.1, 1.0];
+        let clear_color = [0.5, 0.5, 0.5, 1.0];
 
         let clear_values: Vec<Option<ClearValue>> = match (depth, msaa) {
             (false, 1) => {
@@ -294,9 +288,11 @@ impl Renderer {
         );
 
         let swapchain_manager = SwapchainManager::new(
+            &config,
             &vulkan_context,
             window_manager,
             image_format,
+            depth_format,
             render_pass.clone(),
             config.render_pass.samples
         );
@@ -319,7 +315,8 @@ impl Renderer {
             vs.clone(), fs.clone(), 
             render_pass.clone(), 
             swapchain_manager.get_viewport().clone(),
-            swapchain_manager.get_samples()
+            swapchain_manager.get_samples(),
+            config.render_pass.depth_enabled,
         );
 
         let frame_state = FrameState::new(
@@ -375,7 +372,8 @@ impl Renderer {
             self.vs.clone(), self.fs.clone(), 
             self.render_pass.clone(), 
             self.swapchain_manager.get_viewport().clone(),
-            self.swapchain_manager.get_samples()
+            self.swapchain_manager.get_samples(),
+            self.swapchain_manager.depth_enabled()
         );
 
         //recreate command buffers
@@ -466,7 +464,8 @@ impl Renderer {
         fs: Arc<ShaderModule>, 
         render_pass: Arc<RenderPass>, 
         viewport: Viewport,
-        samples: SampleCount
+        samples: SampleCount,
+        depth_enabled: bool
     ) -> Arc<GraphicsPipeline>
     where
         V: BufferContents + Vertex
@@ -495,6 +494,17 @@ impl Renderer {
             render_pass.clone(), 0
         ).unwrap();
 
+        let depth_stencil_state = if depth_enabled {
+            Some(
+                DepthStencilState {
+                    depth: Some(DepthState::simple()),
+                    ..Default::default()
+                }
+            )
+        } else {
+            None
+        };
+
         GraphicsPipeline::new(
             device.clone(),
             None,
@@ -515,6 +525,7 @@ impl Renderer {
                     subpass.num_color_attachments(), 
                     ColorBlendAttachmentState::default())
                 ),
+                depth_stencil_state: depth_stencil_state,
                 subpass: Some(subpass.into()),
                 ..GraphicsPipelineCreateInfo::layout(layout)
             },

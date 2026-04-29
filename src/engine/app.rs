@@ -21,6 +21,7 @@ impl OsmiumEngine {
     pub fn init() -> Self {
         let mut config = RendererConfig::new();
         config.render_pass.samples = 2;
+        config.render_pass.depth_enabled = false;
 
         let event_loop = EventLoop::new();
         

@@ -15,8 +15,7 @@ use vulkano::{
 
 use crate::engine::{
     renderer::{
-        image_manager::ImageManager, 
-        vulkan_context::VulkanContext
+        config::RendererConfig, image_manager::ImageManager, vulkan_context::VulkanContext
     }, 
     window::window_manager::WindowManager
 };
@@ -24,6 +23,7 @@ use crate::engine::{
 pub struct SwapchainManager {
     swapchain: Arc<Swapchain>,
     images: Vec<Arc<Image>>,
+    depth_images: Vec<Arc<Image>>,
     msaa_images: Vec<Arc<Image>>,
     framebuffers: Vec<Arc<Framebuffer>>,
     viewport: Viewport,
@@ -32,9 +32,11 @@ pub struct SwapchainManager {
 
 impl SwapchainManager {
     pub fn new(
+        config: &RendererConfig,
         vulkan_context: &VulkanContext,
         window_manager: &WindowManager,
         image_format: Format,
+        depth_format: Format,
         render_pass: Arc<RenderPass>,
         samples: u32
     ) -> Self {
@@ -76,6 +78,21 @@ impl SwapchainManager {
             samples,
         );
 
+        let depth_images = if config.render_pass.depth_enabled {
+            Self::create_depth_images(
+                vulkan_context, 
+                config.render_pass.depth_enabled,
+                Some(depth_format), 
+                dims.width, 
+                dims.height, 
+                images.len(), 
+                samples
+            )
+        } else {
+            vec![]
+        };
+
+
         let viewport = Viewport {
             offset: [0.0, 0.0],
             extent: [dims.width as f32, dims.height as f32],
@@ -85,14 +102,17 @@ impl SwapchainManager {
         let framebuffers = Self::create_framebuffers(
             &images, 
             &msaa_images,
+            &depth_images,
             render_pass,
-            samples
+            config.render_pass.depth_enabled,
+            samples,
         );
 
         Self {
             swapchain,
             images,
             msaa_images,
+            depth_images,
             framebuffers,
             viewport,
             samples
@@ -110,6 +130,41 @@ impl SwapchainManager {
             64 => SampleCount::Sample64,
             _ => panic!("Unsupported MSAA sample count: {samples}"),
         }
+    }
+
+    fn create_depth_images(
+        vulkan_context: &VulkanContext,
+        depth_enabled: bool,
+        depth_format: Option<Format>,
+        width: u32,
+        height: u32,
+        count: usize,
+        samples: SampleCount,
+    ) -> Vec<Arc<Image>> {
+        if !depth_enabled {
+            return Vec::new();
+        }
+
+        (0..count)
+            .map(|_| {
+                Image::new(
+                    vulkan_context.get_memory_allocator(),
+                    ImageCreateInfo {
+                        image_type: ImageType::Dim2d,
+                        format: depth_format.unwrap(),
+                        extent: [width, height, 1],
+                        usage: ImageUsage::DEPTH_STENCIL_ATTACHMENT,
+                        samples,
+                        ..Default::default()
+                    },
+                    AllocationCreateInfo {
+                        memory_type_filter: MemoryTypeFilter::PREFER_DEVICE,
+                        ..Default::default()
+                    },
+                )
+                .unwrap()
+            })
+            .collect()
     }
 
     fn create_msaa_images(
@@ -149,7 +204,9 @@ impl SwapchainManager {
     fn create_framebuffers(
         swapchain_images: &Vec<Arc<Image>>,
         msaa_images: &Vec<Arc<Image>>,
+        depth_images: &Vec<Arc<Image>>,
         render_pass: Arc<RenderPass>,
+        depth_enabled: bool,
         samples: SampleCount,
     ) -> Vec<Arc<Framebuffer>> {
         swapchain_images
@@ -160,14 +217,39 @@ impl SwapchainManager {
                     image.clone()
                 );
 
-                let attachments = if samples == SampleCount::Sample1 {
-                    vec![swapchain_view]
-                } else {
-                    let msaa_view = ImageManager::get_image_view(
-                        msaa_images[i].clone()
-                    );
+                let attachments = match (depth_enabled, samples == SampleCount::Sample1) {
+                    (false, true) => {
+                        vec![swapchain_view]
+                    }
 
-                    vec![msaa_view, swapchain_view]
+                    (true, true) => {
+                        let depth_view = ImageManager::get_image_view(depth_images[i].clone());
+
+                        vec![
+                            swapchain_view,
+                            depth_view,
+                        ]
+                    }
+
+                    (false, false) => {
+                        let msaa_view = ImageManager::get_image_view(msaa_images[i].clone());
+
+                        vec![
+                            msaa_view,
+                            swapchain_view,
+                        ]
+                    }
+
+                    (true, false) => {
+                        let msaa_view = ImageManager::get_image_view(msaa_images[i].clone());
+                        let depth_view = ImageManager::get_image_view(depth_images[i].clone());
+
+                        vec![
+                            msaa_view,
+                            swapchain_view,
+                            depth_view,
+                        ]
+                    }
                 };
 
                 Framebuffer::new(
@@ -208,6 +290,19 @@ impl SwapchainManager {
             self.samples
         );
 
+        let depth_enabled = self.depth_images.len() != 0;
+
+        let depth_images = 
+            Self::create_depth_images(
+                vulkan_context, 
+                depth_enabled,
+                self.get_depth_format(), 
+                dims.width, 
+                dims.height, 
+                images.len(), 
+                self.samples
+            );
+
         let viewport = Viewport {
             offset: [0.0, 0.0],
             extent: [dims.width as f32, dims.height as f32],
@@ -217,8 +312,10 @@ impl SwapchainManager {
         let framebuffers = Self::create_framebuffers(
             &images, 
             &msaa_images,
+            &depth_images,
             render_pass,
-            self.samples
+            depth_enabled,
+            self.samples,
         );
 
         self.swapchain = swapchain;
@@ -250,5 +347,19 @@ impl SwapchainManager {
 
     pub fn get_samples(&self) -> SampleCount {
         self.samples
+    }
+
+    pub fn depth_enabled(&self) -> bool {
+        self.depth_images.len() > 0
+    }
+
+    fn get_depth_format(&self) -> Option<Format> {
+        if self.depth_images.len() == 0 {
+            return None;
+        }
+
+        Some(
+            self.depth_images[0].format()
+        )
     }
 }
