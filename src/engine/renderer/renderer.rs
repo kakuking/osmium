@@ -2,9 +2,7 @@ use std::sync::Arc;
 
 use shaderc::ShaderKind;
 use vulkano::{
-    Validated, VulkanError, 
-    buffer::{BufferContents, BufferUsage, Subbuffer}, 
-    command_buffer::{
+    Validated, VulkanError, buffer::{BufferContents, BufferUsage, Subbuffer}, command_buffer::{
         AutoCommandBufferBuilder, 
         CommandBufferExecFuture, 
         CommandBufferUsage, 
@@ -13,11 +11,7 @@ use vulkano::{
         SubpassBeginInfo, 
         SubpassContents, 
         SubpassEndInfo
-    }, 
-    device::Device, 
-    format::Format, 
-    memory::allocator::MemoryTypeFilter, 
-    pipeline::{
+    }, device::Device, format::{ClearValue, Format}, image::SampleCount, memory::allocator::MemoryTypeFilter, pipeline::{
         GraphicsPipeline, PipelineLayout, PipelineShaderStageCreateInfo, 
         graphics::{
             GraphicsPipelineCreateInfo, 
@@ -40,8 +34,7 @@ use vulkano::{
         layout::PipelineDescriptorSetLayoutCreateInfo
     }, render_pass::{
         Framebuffer, RenderPass, Subpass
-    }, shader::ShaderModule, 
-    swapchain::{
+    }, shader::ShaderModule, swapchain::{
         self, 
         PresentFuture, 
         SwapchainAcquireFuture, 
@@ -56,20 +49,12 @@ use vulkano::{
     }
 };
 
-use crate::{
-    engine::{
+use crate::engine::{
         renderer::{
-            buffer_manager::BufferManager, 
-            config::RendererConfig, 
-            descriptor_manager::DescriptorManager, 
-            image_manager::ImageManager, 
-            shader_manager::ShaderManager, 
-            swapchain_manager::SwapchainManager, 
-            vulkan_context::VulkanContext
+            buffer_manager::BufferManager, config::RendererConfig, descriptor_manager::DescriptorManager, image_manager::ImageManager, render_pass_constructor::RenderPassConstructor, shader_manager::ShaderManager, swapchain_manager::SwapchainManager, vulkan_context::VulkanContext
         }, 
         window::window_manager::WindowManager
-    }
-};
+    };
 
 type FenceType = FenceSignalFuture<
     PresentFuture<
@@ -119,6 +104,7 @@ pub struct TriangleRenderObject {
 impl TriangleRenderObject {
     pub fn new(
         vulkan_context: &VulkanContext,
+        config: &RendererConfig,
         buffer_manager: &BufferManager,
         pipeline: Arc<GraphicsPipeline>,
         framebuffers: &Vec<Arc<Framebuffer>>,
@@ -139,6 +125,7 @@ impl TriangleRenderObject {
 
         let command_buffers = Self::create_command_buffers(
             vulkan_context, 
+            config,
             pipeline, 
             framebuffers, 
             &vertex_buffer
@@ -153,11 +140,13 @@ impl TriangleRenderObject {
     pub fn recreate_command_buffers(
         &mut self,
         vulkan_context: &VulkanContext,
+        config: &RendererConfig,
         pipeline: Arc<GraphicsPipeline>,
         framebuffers: &Vec<Arc<Framebuffer>>,
     ) {
         self.command_buffers = Self::create_command_buffers(
             vulkan_context,
+            config,
             pipeline,
             framebuffers,
             &self.vertex_buffer
@@ -166,10 +155,42 @@ impl TriangleRenderObject {
 
     fn create_command_buffers(
         vulkan_context: &VulkanContext,
+        config: &RendererConfig,
         pipeline: Arc<GraphicsPipeline>,
         framebuffers: &Vec<Arc<Framebuffer>>,
-        vertex_buffer: &Subbuffer<[MyVertex]>
+        vertex_buffer: &Subbuffer<[MyVertex]>,
     ) -> Vec<Arc<PrimaryAutoCommandBuffer>> {
+        let depth = config.render_pass.depth_enabled;
+        let msaa = config.render_pass.samples;
+
+        let clear_color = [0.1, 0.1, 0.1, 1.0];
+
+        let clear_values: Vec<Option<ClearValue>> = match (depth, msaa) {
+            (false, 1) => {
+                vec![Some(clear_color.into())]
+            },
+            (true, 1) => {
+                vec![
+                    Some(clear_color.into()),
+                    Some(1.0f32.into()),
+                ]
+            },
+            (false, _) => {
+                vec![
+                    Some(clear_color.into()),
+                    None,
+                ]
+            },
+            (true, _) => {
+                vec![
+                    Some(clear_color.into()),
+                    None,
+                    Some(1.0f32.into())
+                ]
+            }
+        };
+        // let clear_values = 
+
         framebuffers
             .iter()
             .map(|framebuffer| {
@@ -182,7 +203,7 @@ impl TriangleRenderObject {
                 
                 builder.begin_render_pass(
                     RenderPassBeginInfo {
-                        clear_values: vec![Some([0.1, 0.1, 0.1, 1.0].into())],
+                        clear_values: clear_values.clone(),
                         ..RenderPassBeginInfo::framebuffer(framebuffer.clone())
                     },
                     SubpassBeginInfo {
@@ -221,12 +242,14 @@ pub struct Renderer {
     swapchain_manager: SwapchainManager,
     frame_state: FrameState,
     render_object: TriangleRenderObject,
+
+    config: RendererConfig,
 }
 
 impl Renderer {
     pub fn init(
         window_manager: &mut WindowManager,
-        config: &RendererConfig
+        config: RendererConfig
     ) -> Renderer
     {
 
@@ -255,22 +278,27 @@ impl Renderer {
             )
         );
         
-        let swapchain_format = vulkan_context
+        let image_format = vulkan_context
             .physical_device
             .surface_formats(&window_manager.get_surface(), Default::default())
             .unwrap()[0]
             .0;
 
-        let render_pass = Self::get_render_pass(
+        let depth_format = Format::D32_SFLOAT;
+
+        let render_pass = RenderPassConstructor::create_render_pass(
+            &config, 
             vulkan_context.get_device(), 
-            swapchain_format.clone()
+            image_format, 
+            depth_format
         );
 
         let swapchain_manager = SwapchainManager::new(
             &vulkan_context,
             window_manager,
-            swapchain_format,
-            render_pass.clone()
+            image_format,
+            render_pass.clone(),
+            config.render_pass.samples
         );
 
         let vs: Arc<ShaderModule> = unsafe {
@@ -290,7 +318,8 @@ impl Renderer {
             vulkan_context.get_device(), 
             vs.clone(), fs.clone(), 
             render_pass.clone(), 
-            swapchain_manager.get_viewport().clone()
+            swapchain_manager.get_viewport().clone(),
+            swapchain_manager.get_samples()
         );
 
         let frame_state = FrameState::new(
@@ -299,6 +328,7 @@ impl Renderer {
 
         let render_object = TriangleRenderObject::new(
             &vulkan_context,
+            &config,
             &buffer_manager,
             pipeline.clone(),
             swapchain_manager.get_framebuffers()
@@ -317,7 +347,9 @@ impl Renderer {
 
             swapchain_manager,
             frame_state,
-            render_object
+            render_object,
+
+            config
         }
     }
 
@@ -333,6 +365,7 @@ impl Renderer {
         self.frame_state.clear_swapchain_recreate();
 
         self.swapchain_manager.recreate(
+            &self.vulkan_context,
             window_manager,
             self.render_pass.clone()
         );
@@ -341,12 +374,14 @@ impl Renderer {
             self.vulkan_context.get_device(), 
             self.vs.clone(), self.fs.clone(), 
             self.render_pass.clone(), 
-            self.swapchain_manager.get_viewport().clone()
+            self.swapchain_manager.get_viewport().clone(),
+            self.swapchain_manager.get_samples()
         );
 
         //recreate command buffers
         self.render_object.recreate_command_buffers(
             &self.vulkan_context, 
+            &self.config,
             self.pipeline.clone(), 
             self.swapchain_manager.get_framebuffers()
         );
@@ -393,7 +428,7 @@ impl Renderer {
             Some(fence) => fence.boxed()
         };
 
-        let  queue = self.vulkan_context.get_queue();
+        let queue = self.vulkan_context.get_queue();
 
         let future = previous_future
             .join(acquire_future)
@@ -425,34 +460,13 @@ impl Renderer {
         self.frame_state.previous_fence_i = image_i as usize;
     } 
 
-    fn get_render_pass(
-        device: Arc<Device>,
-        swapchain_format: Format
-    ) -> Arc<RenderPass> {
-        vulkano::single_pass_renderpass!(
-            device,
-            attachments: {
-                color: {
-                    format: swapchain_format,
-                    samples: 1,
-                    load_op: Clear,
-                    store_op: Store
-                },
-            },
-            pass: {
-                color: [color],
-                depth_stencil: {}
-            },
-        )
-        .unwrap()
-    }
-
     fn get_pipeline<V>(
         device: Arc<Device>,
         vs: Arc<ShaderModule>, 
         fs: Arc<ShaderModule>, 
         render_pass: Arc<RenderPass>, 
-        viewport: Viewport
+        viewport: Viewport,
+        samples: SampleCount
     ) -> Arc<GraphicsPipeline>
     where
         V: BufferContents + Vertex
@@ -493,7 +507,10 @@ impl Renderer {
                     ..Default::default()
                 }),
                 rasterization_state: Some(RasterizationState::default()),
-                multisample_state: Some(MultisampleState::default()),
+                multisample_state: Some(MultisampleState {
+                    rasterization_samples: samples,
+                    ..Default::default()
+                }),
                 color_blend_state: Some(ColorBlendState::with_attachment_states(
                     subpass.num_color_attachments(), 
                     ColorBlendAttachmentState::default())

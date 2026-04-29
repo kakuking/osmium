@@ -19,13 +19,15 @@ pub struct OsmiumEngine {
 
 impl OsmiumEngine {
     pub fn init() -> Self {
-        let config = RendererConfig::new();
+        let mut config = RendererConfig::new();
+        config.render_pass.samples = 2;
+
         let event_loop = EventLoop::new();
         
         let mut window_manager = WindowManager::init(&event_loop);
         let renderer = Renderer::init(
             &mut window_manager, 
-            &config
+            config
         );
 
         Self {

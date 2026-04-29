@@ -5,5 +5,6 @@ pub mod shader_manager;
 pub mod vulkan_context;
 pub mod swapchain_manager;
 pub mod config;
+pub mod render_pass_constructor;
 
 pub mod renderer;

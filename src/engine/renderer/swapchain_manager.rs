@@ -1,13 +1,9 @@
 use std::sync::Arc;
 
 use vulkano::{
-    format::Format, 
-    image::{
-        Image, 
-        ImageUsage
-    }, 
-    pipeline::graphics::viewport::Viewport, 
-    render_pass::{
+    format::Format, image::{
+        Image, ImageCreateInfo, ImageType, ImageUsage, SampleCount
+    }, memory::allocator::{AllocationCreateInfo, MemoryTypeFilter}, pipeline::graphics::viewport::Viewport, render_pass::{
         Framebuffer, 
         FramebufferCreateInfo, 
         RenderPass
@@ -28,8 +24,10 @@ use crate::engine::{
 pub struct SwapchainManager {
     swapchain: Arc<Swapchain>,
     images: Vec<Arc<Image>>,
+    msaa_images: Vec<Arc<Image>>,
     framebuffers: Vec<Arc<Framebuffer>>,
-    viewport: Viewport
+    viewport: Viewport,
+    samples: SampleCount,
 }
 
 impl SwapchainManager {
@@ -38,7 +36,11 @@ impl SwapchainManager {
         window_manager: &WindowManager,
         image_format: Format,
         render_pass: Arc<RenderPass>,
+        samples: u32
     ) -> Self {
+
+        let samples = Self::sample_count(samples);
+
         let caps = vulkan_context
             .physical_device
             .surface_capabilities(&window_manager.get_surface(), Default::default())
@@ -58,12 +60,21 @@ impl SwapchainManager {
                 min_image_count: caps.min_image_count + 1,
                 image_format,
                 image_extent: dims.into(),
-                image_usage: ImageUsage::COLOR_ATTACHMENT,
+                image_usage: ImageUsage::COLOR_ATTACHMENT | ImageUsage::TRANSFER_DST,
                 composite_alpha,
                 ..Default::default()
             },
         )
         .unwrap();
+
+        let msaa_images = Self::create_msaa_images(
+            vulkan_context,
+            image_format,
+            dims.width,
+            dims.height,
+            images.len(),
+            samples,
+        );
 
         let viewport = Viewport {
             offset: [0.0, 0.0],
@@ -73,30 +84,96 @@ impl SwapchainManager {
 
         let framebuffers = Self::create_framebuffers(
             &images, 
-            render_pass
+            &msaa_images,
+            render_pass,
+            samples
         );
 
         Self {
             swapchain,
             images,
+            msaa_images,
             framebuffers,
             viewport,
+            samples
         }
+    }
+
+    fn sample_count(samples: u32) -> SampleCount {
+        match samples {
+            1 => SampleCount::Sample1,
+            2 => SampleCount::Sample2,
+            4 => SampleCount::Sample4,
+            8 => SampleCount::Sample8,
+            16 => SampleCount::Sample16,
+            32 => SampleCount::Sample32,
+            64 => SampleCount::Sample64,
+            _ => panic!("Unsupported MSAA sample count: {samples}"),
+        }
+    }
+
+    fn create_msaa_images(
+        vulkan_context: &VulkanContext,
+        image_format: Format,
+        width: u32,
+        height: u32,
+        count: usize,
+        samples: SampleCount,
+    ) -> Vec<Arc<Image>> {
+        if samples == SampleCount::Sample1 {
+            return  Vec::new();
+        }
+
+        (0..count)
+            .map(|_| {
+                Image::new(
+                    vulkan_context.get_memory_allocator(),
+                    ImageCreateInfo {
+                        image_type: ImageType::Dim2d,
+                        format: image_format,
+                        extent: [width, height, 1],
+                        usage: ImageUsage::COLOR_ATTACHMENT,
+                        samples,
+                        ..Default::default()
+                    },
+                    AllocationCreateInfo {
+                        memory_type_filter: MemoryTypeFilter::PREFER_DEVICE,
+                        ..Default::default()
+                    }
+                )
+                .unwrap()
+            })
+            .collect()
     }
 
     fn create_framebuffers(
         swapchain_images: &Vec<Arc<Image>>,
-        render_pass: Arc<RenderPass>
+        msaa_images: &Vec<Arc<Image>>,
+        render_pass: Arc<RenderPass>,
+        samples: SampleCount,
     ) -> Vec<Arc<Framebuffer>> {
         swapchain_images
             .iter()
-            .map(|image| {
-                let view = ImageManager::get_image_view(image.clone());
+            .enumerate()
+            .map(|(i, image)| {
+                let swapchain_view = ImageManager::get_image_view(
+                    image.clone()
+                );
+
+                let attachments = if samples == SampleCount::Sample1 {
+                    vec![swapchain_view]
+                } else {
+                    let msaa_view = ImageManager::get_image_view(
+                        msaa_images[i].clone()
+                    );
+
+                    vec![msaa_view, swapchain_view]
+                };
 
                 Framebuffer::new(
                     render_pass.clone(),
                     FramebufferCreateInfo {
-                        attachments: vec![view],
+                        attachments,
                         ..Default::default()
                     },
                 )
@@ -106,7 +183,8 @@ impl SwapchainManager {
     }
 
     pub fn recreate(
-        &mut self, 
+        &mut self,
+        vulkan_context: &VulkanContext,
         window_manager: &WindowManager, 
         render_pass: Arc<RenderPass>
     ) {
@@ -121,6 +199,15 @@ impl SwapchainManager {
             })
             .expect("Failed to recreate swapchain");
 
+        let msaa_images = Self::create_msaa_images(
+            vulkan_context, 
+            self.swapchain.image_format(), 
+            dims.width, 
+            dims.height, 
+            images.len(), 
+            self.samples
+        );
+
         let viewport = Viewport {
             offset: [0.0, 0.0],
             extent: [dims.width as f32, dims.height as f32],
@@ -129,11 +216,14 @@ impl SwapchainManager {
 
         let framebuffers = Self::create_framebuffers(
             &images, 
-            render_pass
+            &msaa_images,
+            render_pass,
+            self.samples
         );
 
         self.swapchain = swapchain;
         self.images = images;
+        self.msaa_images = msaa_images;
         self.viewport = viewport;
         self.framebuffers = framebuffers;
     }
@@ -156,5 +246,9 @@ impl SwapchainManager {
 
     pub fn get_image_format(&self) -> Format {
         self.swapchain.image_format()
+    }
+
+    pub fn get_samples(&self) -> SampleCount {
+        self.samples
     }
 }
