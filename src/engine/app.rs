@@ -7,8 +7,15 @@ use crate::engine::{
     renderer::{
         config::RendererConfig, 
         renderer::Renderer
+    }, scene::{
+        material::MaterialConfig, 
+        mesh::{
+            Mesh, 
+            OsmiumVertex
+        }, 
+        scene::Scene
     }, 
-    window::window_manager::WindowManager, 
+    window::window_manager::WindowManager 
 };
 
 pub struct OsmiumEngine {
@@ -24,10 +31,14 @@ impl OsmiumEngine {
         config.render_pass.depth_enabled = false;
 
         let event_loop = EventLoop::new();
+
+        let scene = Self::create_basic_scene();
         
         let mut window_manager = WindowManager::init(&event_loop);
+
         let renderer = Renderer::init(
-            &mut window_manager, 
+            &mut window_manager,
+            scene, 
             config
         );
 
@@ -36,6 +47,34 @@ impl OsmiumEngine {
             window_manager,
             event_loop
         }
+    }
+
+    fn create_basic_scene() -> Scene {
+        let triangles = vec![
+            OsmiumVertex { position: [-0.8, -0.5, 0.0] },
+            OsmiumVertex { position: [ -0.3,  0.5, 0.0] },
+            OsmiumVertex { position: [ 0.2, -0.5, 0.0] },
+        ];
+
+        let mesh = Mesh::init(triangles, None);
+
+        let triangles2 = vec![
+            OsmiumVertex { position: [-0.2, 0.5, 0.0] },
+            OsmiumVertex { position: [ 0.3, -0.5, 0.0] },
+            OsmiumVertex { position: [ 0.8, 0.5, 0.0] },
+        ];
+
+        let mesh2 = Mesh::init(triangles2, None);
+
+        let material_config = MaterialConfig::new();
+
+        let mut scene = Scene::new();
+        scene.meshes.push(mesh);
+        scene.meshes.push(mesh2);
+
+        scene.material_configs.push(material_config);
+
+        scene
     }
 
     pub unsafe fn run(self) {

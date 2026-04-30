@@ -1,8 +1,7 @@
 use std::sync::Arc;
 
-use shaderc::ShaderKind;
 use vulkano::{
-    Validated, VulkanError, buffer::{BufferContents, BufferUsage, Subbuffer}, command_buffer::{
+    Validated, VulkanError, buffer::IndexBuffer, command_buffer::{
         AutoCommandBufferBuilder, 
         CommandBufferExecFuture, 
         CommandBufferUsage, 
@@ -11,24 +10,9 @@ use vulkano::{
         SubpassBeginInfo, 
         SubpassContents, 
         SubpassEndInfo
-    }, device::Device, format::{ClearValue, Format}, image::SampleCount, memory::allocator::MemoryTypeFilter, pipeline::{
-        GraphicsPipeline, PipelineLayout, PipelineShaderStageCreateInfo, 
-        graphics::{
-            GraphicsPipelineCreateInfo, color_blend::{
-                ColorBlendAttachmentState, 
-                ColorBlendState
-            }, depth_stencil::{DepthState, DepthStencilState}, input_assembly::InputAssemblyState, multisample::MultisampleState, rasterization::RasterizationState, vertex_input::{
-                Vertex,
-                VertexDefinition
-            }, viewport::{
-                Viewport, 
-                ViewportState
-            }
-        }, 
-        layout::PipelineDescriptorSetLayoutCreateInfo
-    }, render_pass::{
-        Framebuffer, RenderPass, Subpass
-    }, shader::ShaderModule, swapchain::{
+    }, format::{ClearValue, Format}, render_pass::{
+        Framebuffer, RenderPass
+    }, swapchain::{
         self, 
         PresentFuture, 
         SwapchainAcquireFuture, 
@@ -44,11 +28,22 @@ use vulkano::{
 };
 
 use crate::engine::{
-        renderer::{
-            buffer_manager::BufferManager, config::RendererConfig, descriptor_manager::DescriptorManager, image_manager::ImageManager, render_pass_constructor::RenderPassConstructor, shader_manager::ShaderManager, swapchain_manager::SwapchainManager, vulkan_context::VulkanContext
-        }, 
-        window::window_manager::WindowManager
-    };
+    renderer::{
+        buffer_manager::BufferManager, 
+        config::RendererConfig, 
+        descriptor_manager::DescriptorManager, 
+        image_manager::ImageManager, 
+        render_pass_constructor::RenderPassConstructor, 
+        shader_manager::ShaderManager, 
+        swapchain_manager::SwapchainManager, 
+        vulkan_context::VulkanContext
+    }, scene::{
+        scene::{
+            RenderItem, Scene
+        }
+    }, 
+    window::window_manager::WindowManager
+};
 
 type FenceType = FenceSignalFuture<
     PresentFuture<
@@ -82,151 +77,9 @@ impl FrameState {
     }
 }
 
-
-#[derive(BufferContents, Vertex)]
-#[repr(C)]
-pub struct MyVertex {
-    #[format(R32G32_SFLOAT)]
-    position: [f32; 2]
-}
-
-pub struct TriangleRenderObject {
-    pub vertex_buffer: Subbuffer<[MyVertex]>,
-    pub command_buffers: Vec<Arc<PrimaryAutoCommandBuffer>>,
-}
-
-impl TriangleRenderObject {
-    pub fn new(
-        vulkan_context: &VulkanContext,
-        config: &RendererConfig,
-        buffer_manager: &BufferManager,
-        pipeline: Arc<GraphicsPipeline>,
-        framebuffers: &Vec<Arc<Framebuffer>>,
-    ) -> Self {
-        let triangles = vec![
-            MyVertex { position: [-0.5, -0.5] },
-            MyVertex { position: [ 0.0,  0.5] },
-            MyVertex { position: [ 0.5, -0.5] },
-        ];
-
-        let vertex_buffer: Subbuffer<[MyVertex]> = buffer_manager.create_buffer_from_iter(
-            triangles,
-            Some(BufferUsage::VERTEX_BUFFER),
-            Some(
-                MemoryTypeFilter::PREFER_DEVICE | MemoryTypeFilter::HOST_SEQUENTIAL_WRITE
-            )
-        );
-
-        let command_buffers = Self::create_command_buffers(
-            vulkan_context, 
-            config,
-            pipeline, 
-            framebuffers, 
-            &vertex_buffer
-        );
-
-        Self {
-            vertex_buffer,
-            command_buffers
-        }
-    }
-
-    pub fn recreate_command_buffers(
-        &mut self,
-        vulkan_context: &VulkanContext,
-        config: &RendererConfig,
-        pipeline: Arc<GraphicsPipeline>,
-        framebuffers: &Vec<Arc<Framebuffer>>,
-    ) {
-        self.command_buffers = Self::create_command_buffers(
-            vulkan_context,
-            config,
-            pipeline,
-            framebuffers,
-            &self.vertex_buffer
-        );
-    }
-
-    fn create_command_buffers(
-        vulkan_context: &VulkanContext,
-        config: &RendererConfig,
-        pipeline: Arc<GraphicsPipeline>,
-        framebuffers: &Vec<Arc<Framebuffer>>,
-        vertex_buffer: &Subbuffer<[MyVertex]>,
-    ) -> Vec<Arc<PrimaryAutoCommandBuffer>> {
-        let depth = config.render_pass.depth_enabled;
-        let msaa = config.render_pass.samples;
-
-        let clear_color = [0.5, 0.5, 0.5, 1.0];
-
-        let clear_values: Vec<Option<ClearValue>> = match (depth, msaa) {
-            (false, 1) => {
-                vec![Some(clear_color.into())]
-            },
-            (true, 1) => {
-                vec![
-                    Some(clear_color.into()),
-                    Some(1.0f32.into()),
-                ]
-            },
-            (false, _) => {
-                vec![
-                    Some(clear_color.into()),
-                    None,
-                ]
-            },
-            (true, _) => {
-                vec![
-                    Some(clear_color.into()),
-                    None,
-                    Some(1.0f32.into())
-                ]
-            }
-        };
-        // let clear_values = 
-
-        framebuffers
-            .iter()
-            .map(|framebuffer| {
-                let mut builder = AutoCommandBufferBuilder::primary(
-                    &vulkan_context.command_buffer_allocator, 
-                    vulkan_context.queue.queue_family_index(), 
-                    CommandBufferUsage::MultipleSubmit
-                )
-                .unwrap();
-                
-                builder.begin_render_pass(
-                    RenderPassBeginInfo {
-                        clear_values: clear_values.clone(),
-                        ..RenderPassBeginInfo::framebuffer(framebuffer.clone())
-                    },
-                    SubpassBeginInfo {
-                        contents: SubpassContents::Inline,
-                        ..Default::default()
-                    },
-                    )
-                    .unwrap()
-                    .bind_pipeline_graphics(pipeline.clone())
-                    .unwrap()
-                    .bind_vertex_buffers(0, vertex_buffer.clone())
-                    .unwrap()
-                    .draw(vertex_buffer.len() as u32, 1, 0, 0)
-                    .unwrap()
-                    .end_render_pass(SubpassEndInfo::default())
-                    .unwrap();
-
-                builder.build().unwrap()
-            })
-            .collect()
-    }
-}
-
 pub struct Renderer {
     vulkan_context: VulkanContext,
     render_pass: Arc<RenderPass>,
-    pipeline: Arc<GraphicsPipeline>,
-    vs: Arc<ShaderModule>,
-    fs: Arc<ShaderModule>,
     
     pub shader_manager: Arc<ShaderManager>,
     pub descriptor_manager: Arc<DescriptorManager>,
@@ -235,14 +88,15 @@ pub struct Renderer {
     
     swapchain_manager: SwapchainManager,
     frame_state: FrameState,
-    render_object: TriangleRenderObject,
-
-    config: RendererConfig,
+    command_buffers: Vec<Arc<PrimaryAutoCommandBuffer>>,
+    
+    scene: Scene
 }
 
 impl Renderer {
     pub fn init(
         window_manager: &mut WindowManager,
+        scene: Scene,
         config: RendererConfig
     ) -> Renderer
     {
@@ -297,56 +151,44 @@ impl Renderer {
             config.render_pass.samples
         );
 
-        let vs: Arc<ShaderModule> = unsafe {
-            shader_manager.create_shader(
-                &config.vs_path,
-                ShaderKind::Vertex,
-            )
-        };
-        let fs: Arc<ShaderModule> = unsafe {
-            shader_manager.create_shader(
-                &config.fs_path,
-                ShaderKind::Fragment,
-            )
-        };
-
-        let pipeline = Self::get_pipeline::<MyVertex>(
-            vulkan_context.get_device(), 
-            vs.clone(), fs.clone(), 
-            render_pass.clone(), 
-            swapchain_manager.get_viewport().clone(),
-            swapchain_manager.get_samples(),
-            config.render_pass.depth_enabled,
-        );
-
         let frame_state = FrameState::new(
             swapchain_manager.get_swapchain_images().len()
         );
 
-        let render_object = TriangleRenderObject::new(
-            &vulkan_context,
-            &config,
-            &buffer_manager,
-            pipeline.clone(),
-            swapchain_manager.get_framebuffers()
+        let mut scene = scene;
+
+        scene.create_materials(&shader_manager);
+        scene.initiallize_buffers(&buffer_manager);
+
+        scene.create_pipelines(
+            vulkan_context.get_device(), 
+            render_pass.clone(), 
+            swapchain_manager.get_viewport().clone(), 
+            swapchain_manager.get_samples(), 
+            config.render_pass.depth_enabled
+        );
+
+        let command_buffers: Vec<Arc<PrimaryAutoCommandBuffer>> = Self::create_command_buffers(
+            &vulkan_context, 
+            swapchain_manager.depth_enabled(),
+            config.render_pass.samples,
+            swapchain_manager.get_framebuffers(), 
+            &scene.get_render_items()
         );
 
         Self {
             vulkan_context,
             render_pass,
-            pipeline,
-            vs, fs,
 
             shader_manager,
             descriptor_manager,
             buffer_manager,
             image_manager,
+            command_buffers,
 
             swapchain_manager,
             frame_state,
-            render_object,
-
-            config
+            scene,
         }
     }
 
@@ -367,21 +209,22 @@ impl Renderer {
             self.render_pass.clone()
         );
 
-        self.pipeline = Self::get_pipeline::<MyVertex>(
+        self.scene.create_pipelines(
             self.vulkan_context.get_device(), 
-            self.vs.clone(), self.fs.clone(), 
             self.render_pass.clone(), 
-            self.swapchain_manager.get_viewport().clone(),
-            self.swapchain_manager.get_samples(),
+            self.swapchain_manager.get_viewport().clone(), 
+            self.swapchain_manager.get_samples(), 
             self.swapchain_manager.depth_enabled()
         );
 
-        //recreate command buffers
-        self.render_object.recreate_command_buffers(
-            &self.vulkan_context, 
-            &self.config,
-            self.pipeline.clone(), 
-            self.swapchain_manager.get_framebuffers()
+        let render_items = self.scene.get_render_items();
+
+        self.command_buffers = Self::create_command_buffers(
+            &self.vulkan_context,
+            self.swapchain_manager.depth_enabled(),
+            self.swapchain_manager.get_samples() as u32,
+            self.swapchain_manager.get_framebuffers(),
+            &render_items,
         );
 
         self.frame_state.fences = vec![None; self.swapchain_manager.get_swapchain_images().len()];
@@ -432,7 +275,7 @@ impl Renderer {
             .join(acquire_future)
             .then_execute(
                 queue.clone(), 
-                self.render_object.command_buffers[image_i as usize].clone()
+                self.command_buffers[image_i as usize].clone()
             )
             .unwrap()
             .then_swapchain_present(
@@ -458,78 +301,111 @@ impl Renderer {
         self.frame_state.previous_fence_i = image_i as usize;
     } 
 
-    fn get_pipeline<V>(
-        device: Arc<Device>,
-        vs: Arc<ShaderModule>, 
-        fs: Arc<ShaderModule>, 
-        render_pass: Arc<RenderPass>, 
-        viewport: Viewport,
-        samples: SampleCount,
-        depth_enabled: bool
-    ) -> Arc<GraphicsPipeline>
-    where
-        V: BufferContents + Vertex
-    {
-        let vs = vs.entry_point("main").unwrap();
-        let fs = fs.entry_point("main").unwrap();
+    fn create_command_buffers(
+        vulkan_context: &VulkanContext,
+        depth_enabled: bool,
+        msaa: u32,
+        framebuffers: &Vec<Arc<Framebuffer>>,
+        render_items: &Vec<RenderItem>,
+    ) -> Vec<Arc<PrimaryAutoCommandBuffer>> {
+        framebuffers
+            .iter()
+            .map(|framebuffer| {
+                Self::create_one_command_buffer(
+                    vulkan_context, 
+                    depth_enabled,
+                    msaa,
+                    framebuffer.clone(), 
+                    render_items
+                )
+            })
+            .collect()
+    }
 
-        let vertex_input_state = V::per_vertex()
-            .definition(&vs.info().input_interface)
-            .unwrap();
+    fn create_one_command_buffer(
+        vulkan_context: &VulkanContext,
+        depth_enabled: bool,
+        msaa: u32,
+        framebuffer: Arc<Framebuffer>,
+        render_items: &Vec<RenderItem>,
+    ) -> Arc<PrimaryAutoCommandBuffer> {
+        let clear_color = [0.5, 0.5, 0.5, 1.0];
 
-        let stages: [PipelineShaderStageCreateInfo; 2] = [
-            PipelineShaderStageCreateInfo::new(vs),
-            PipelineShaderStageCreateInfo::new(fs),
-        ];
-
-        let layout = PipelineLayout::new(
-            device.clone(),
-            PipelineDescriptorSetLayoutCreateInfo::from_stages(&stages)
-            .into_pipeline_layout_create_info(device.clone())
-            .unwrap(),
-        )
-        .unwrap();
-
-        let subpass = Subpass::from(
-            render_pass.clone(), 0
-        ).unwrap();
-
-        let depth_stencil_state = if depth_enabled {
-            Some(
-                DepthStencilState {
-                    depth: Some(DepthState::simple()),
-                    ..Default::default()
-                }
-            )
-        } else {
-            None
+        let clear_values: Vec<Option<ClearValue>> = match (depth_enabled, msaa) {
+            (false, 1) => {
+                vec![Some(clear_color.into())]
+            },
+            (true, 1) => {
+                vec![
+                    Some(clear_color.into()),
+                    Some(1.0f32.into()),
+                ]
+            },
+            (false, _) => {
+                vec![
+                    Some(clear_color.into()),
+                    None,
+                ]
+            },
+            (true, _) => {
+                vec![
+                    Some(clear_color.into()),
+                    None,
+                    Some(1.0f32.into())
+                ]
+            }
         };
 
-        GraphicsPipeline::new(
-            device.clone(),
-            None,
-            GraphicsPipelineCreateInfo {
-                stages: stages.into_iter().collect(),
-                vertex_input_state: Some(vertex_input_state),
-                input_assembly_state: Some(InputAssemblyState::default()),
-                viewport_state: Some(ViewportState {
-                    viewports: [viewport].into_iter().collect(),
-                    ..Default::default()
-                }),
-                rasterization_state: Some(RasterizationState::default()),
-                multisample_state: Some(MultisampleState {
-                    rasterization_samples: samples,
-                    ..Default::default()
-                }),
-                color_blend_state: Some(ColorBlendState::with_attachment_states(
-                    subpass.num_color_attachments(), 
-                    ColorBlendAttachmentState::default())
-                ),
-                depth_stencil_state: depth_stencil_state,
-                subpass: Some(subpass.into()),
-                ..GraphicsPipelineCreateInfo::layout(layout)
+        let mut builder = AutoCommandBufferBuilder::primary(
+            &vulkan_context.command_buffer_allocator, 
+            vulkan_context.queue.queue_family_index(), 
+            CommandBufferUsage::MultipleSubmit
+        )
+        .unwrap();
+        
+        builder.begin_render_pass(
+            RenderPassBeginInfo {
+                clear_values: clear_values.clone(),
+                ..RenderPassBeginInfo::framebuffer(framebuffer.clone())
             },
-        ).unwrap()
+            SubpassBeginInfo {
+                contents: SubpassContents::Inline,
+                ..Default::default()
+            },
+            )
+            .unwrap();
+
+        for item in render_items {
+            let pipeline = item.get_pipeline();
+
+            builder
+                .bind_pipeline_graphics(pipeline.clone())
+                .unwrap()
+                .bind_vertex_buffers(0, item.get_vertex_buffer())
+                .unwrap();
+
+            if let Some(idx_buffer) = item.get_index_buffer() {
+                builder
+                    .bind_index_buffer(
+                        IndexBuffer::from(idx_buffer)
+                    )
+                    .unwrap()
+                    .draw_indexed(item.get_num_indices(), 1, 0, 0, 0)
+                    .unwrap();
+            } else {
+                builder
+                    .draw(item.get_num_vertices(), 1, 0, 0)
+                    .unwrap();
+            }
+        }
+
+        builder
+            .end_render_pass(SubpassEndInfo::default())
+            .unwrap();
+
+        builder
+            .build()
+            .unwrap()
     }
 }
 

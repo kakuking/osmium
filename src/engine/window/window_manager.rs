@@ -24,7 +24,7 @@ impl WindowManager {
         let window: Window = WindowBuilder::new()
             .with_title("Osmium")
             .with_inner_size(PhysicalSize::new(
-                1024, 1024
+                1536, 1536
             ))
             .build(event_loop)
             .unwrap();

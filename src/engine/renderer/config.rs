@@ -27,9 +27,6 @@ pub struct RendererConfig {
     pub gpu_priority: Vec<PhysicalDeviceType>,
 
     pub render_pass: RenderPassConfig,
-
-    pub vs_path: String,
-    pub fs_path: String,
 }
 
 impl RendererConfig {
@@ -45,9 +42,6 @@ impl RendererConfig {
             gpu_priority,
 
             render_pass: RenderPassConfig::new(),
-
-            vs_path: "./shaders/vertex.glsl".to_string(),
-            fs_path: "./shaders/fragment.glsl".to_string(),
         }
     }
 }
