@@ -19,7 +19,7 @@ impl RenderPassConstructor {
         image_format: Format,
         depth_format: Format
     ) -> Arc<RenderPass> {
-        match (config.render_pass.depth_enabled, config.render_pass.samples) {
+        match (config.depth_enabled, config.render_pass.samples) {
             (false, 1) => Self::color(config, device, image_format),
             (false, _) => Self::color_msaa(config, device, image_format),
             (true, 1) => Self::color_depth(config, device, image_format, depth_format),

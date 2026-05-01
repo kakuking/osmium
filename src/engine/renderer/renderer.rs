@@ -165,7 +165,7 @@ impl Renderer {
             render_pass.clone(), 
             swapchain_manager.get_viewport().clone(), 
             swapchain_manager.get_samples(), 
-            config.render_pass.depth_enabled
+            config.depth_enabled
         );
 
         let command_buffers: Vec<Arc<PrimaryAutoCommandBuffer>> = Self::create_command_buffers(
@@ -201,13 +201,18 @@ impl Renderer {
     }
 
     pub fn recreate_swapchain(&mut self, window_manager: &WindowManager) {
-        self.frame_state.clear_swapchain_recreate();
 
-        self.swapchain_manager.recreate(
+        let recreated = self.swapchain_manager.recreate(
             &self.vulkan_context,
             window_manager,
             self.render_pass.clone()
         );
+
+        if !recreated {
+            return;
+        }
+
+        self.frame_state.clear_swapchain_recreate();
 
         self.scene.create_pipelines(
             self.vulkan_context.get_device(), 

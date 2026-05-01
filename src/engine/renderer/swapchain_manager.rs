@@ -78,10 +78,10 @@ impl SwapchainManager {
             samples,
         );
 
-        let depth_images = if config.render_pass.depth_enabled {
+        let depth_images = if config.depth_enabled {
             Self::create_depth_images(
                 vulkan_context, 
-                config.render_pass.depth_enabled,
+                config.depth_enabled,
                 Some(depth_format), 
                 dims.width, 
                 dims.height, 
@@ -104,7 +104,7 @@ impl SwapchainManager {
             &msaa_images,
             &depth_images,
             render_pass,
-            config.render_pass.depth_enabled,
+            config.depth_enabled,
             samples,
         );
 
@@ -269,10 +269,14 @@ impl SwapchainManager {
         vulkan_context: &VulkanContext,
         window_manager: &WindowManager, 
         render_pass: Arc<RenderPass>
-    ) {
+    ) -> bool {
         let dims = window_manager
             .get_window()
             .inner_size();
+
+        if dims.width == 0 || dims.height == 0 {
+            return false;
+        }
 
         let (swapchain, images) = self.swapchain
             .recreate(SwapchainCreateInfo {
@@ -323,6 +327,8 @@ impl SwapchainManager {
         self.msaa_images = msaa_images;
         self.viewport = viewport;
         self.framebuffers = framebuffers;
+
+        true
     }
 
     pub fn get_swapchain(&self) -> Arc<Swapchain> {

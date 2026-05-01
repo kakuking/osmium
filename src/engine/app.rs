@@ -28,13 +28,12 @@ impl OsmiumEngine {
     pub fn init() -> Self {
         let mut config = RendererConfig::new();
         config.render_pass.samples = 2;
-        config.render_pass.depth_enabled = false;
 
         let event_loop = EventLoop::new();
 
         let scene = Self::create_basic_scene();
         
-        let mut window_manager = WindowManager::init(&event_loop);
+        let mut window_manager = WindowManager::init(&config.window_config, &event_loop);
 
         let renderer = Renderer::init(
             &mut window_manager,
@@ -104,6 +103,7 @@ impl OsmiumEngine {
 
                 Event::MainEventsCleared => {
                     renderer.render(&window_manager);
+                    window_manager.set_visibility(true);
                 }
 
                 _ => {}

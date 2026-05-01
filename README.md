@@ -11,4 +11,5 @@ Now approahcing new horizons and feeling my way through it
 - [x] Bonzo refactoring
 - [x] More flexible pipeline creation
 - [x] Added proper scene creation
+- [x] Added window configuration
 - [ ] and then ...
