@@ -42,8 +42,19 @@ impl MaterialConfig {
             name: "default_texture".into(),
             vertex_shader: "./shaders/vertex.glsl".into(),
             fragment_shader: "./shaders/fragment.glsl".into(),
-            params: MaterialParams { base_color: [1.0, 1.0, 1.0, 1.0], roughness: 0.5, metallic: 0.0 },
-            textures: MaterialTextures { albedo: None, normal: None, roughness: None, metallic: None }
+            params: MaterialParams {
+                base_color: [1.0, 1.0, 1.0, 1.0], 
+                roughness: 0.5, 
+                metallic: 0.0
+            },
+            textures: MaterialTextures {
+                albedo: Some(
+                    "./resources/uv_tester.png".into()
+                ), 
+                normal: None, 
+                roughness: None, 
+                metallic: None
+            }
         }
     }
 }

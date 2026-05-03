@@ -13,6 +13,7 @@ pub struct WindowConfig {
 
     pub fullscreen: bool,
     pub active: bool,
+    pub visible: bool,
     pub decorations: bool,
 
     pub close_button: bool,
@@ -32,6 +33,7 @@ impl WindowConfig {
             height: 1024,
             fullscreen: false,
             active: true,
+            visible: true,
             decorations: true,
             close_button: true,
             maximize_button: true,

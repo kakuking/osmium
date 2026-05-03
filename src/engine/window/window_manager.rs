@@ -64,7 +64,7 @@ impl WindowManager {
             .with_inner_size(config.size())
             .with_window_icon(window_icon)
             .with_taskbar_icon(taskbar_icon)
-            .with_visible(false)
+            .with_visible(config.visible)
             .build(event_loop)
             .unwrap();
 

@@ -13,7 +13,7 @@ use vulkano::{
     }, format::{
         ClearValue, Format
     }, pipeline::{
-        Pipeline, PipelineBindPoint
+        GraphicsPipeline, Pipeline, PipelineBindPoint
     }, render_pass::{
         Framebuffer, RenderPass
     }, swapchain::{
@@ -32,7 +32,7 @@ use vulkano::{
 };
 
 use crate::engine::{
-    renderer::{
+    config::config::RendererConfig, renderer::{
         buffer_manager::BufferManager, 
         descriptor_manager::DescriptorManager, 
         image_manager::ImageManager, 
@@ -40,14 +40,11 @@ use crate::engine::{
         shader_manager::ShaderManager, 
         swapchain_manager::SwapchainManager, 
         vulkan_context::VulkanContext
-    }, config::{
-        config::RendererConfig, 
     }, scene::{
-        scene::{
+        asset_manager::AssetManager, scene::{
             RenderItem, Scene
         }
-    }, 
-    window::window_manager::WindowManager
+    }, window::window_manager::WindowManager
 };
 
 type FenceType = FenceSignalFuture<
@@ -101,8 +98,9 @@ pub struct Renderer {
 impl Renderer {
     pub fn init(
         window_manager: &mut WindowManager,
+        config: RendererConfig,
         scene: Scene,
-        config: RendererConfig
+        assets: &mut AssetManager,
     ) -> Renderer
     {
 
@@ -160,34 +158,37 @@ impl Renderer {
             swapchain_manager.get_swapchain_images().len()
         );
 
-        let mut scene = scene;
+        for mesh in assets.meshes.iter_mut() {
+            mesh.create_buffers(&buffer_manager);
+        }
 
-        scene.create_materials(
+        assets.create_materials(
             &shader_manager, 
-            &image_manager,
-            &buffer_manager,
-            &vulkan_context.command_buffer_allocator,
-            vulkan_context.queue.clone(),
+            &image_manager, 
+            &buffer_manager, 
+            &vulkan_context.command_buffer_allocator, 
+            vulkan_context.queue.clone(), 
             vulkan_context.memory_allocator.clone()
         );
 
-        scene.initiallize_buffers(&buffer_manager);
-
-        scene.create_pipelines(
-            vulkan_context.get_device(), 
-            render_pass.clone(), 
-            swapchain_manager.get_viewport().clone(), 
-            swapchain_manager.get_samples(), 
-            config.enable_depth,
-            &descriptor_manager
-        );
+        for material in assets.materials.iter_mut() {
+            material.recreate_pipeline(
+                vulkan_context.get_device(),
+                render_pass.clone(),
+                swapchain_manager.get_viewport().clone(),
+                swapchain_manager.get_samples(),
+                config.enable_depth,
+                &descriptor_manager
+            );
+        }
 
         let command_buffers: Vec<Arc<PrimaryAutoCommandBuffer>> = Self::create_command_buffers(
             &vulkan_context, 
             swapchain_manager.enable_depth(),
             config.render_pass.samples,
             swapchain_manager.get_framebuffers(), 
-            &scene.get_render_items()
+            &scene.get_render_items(),
+            assets
         );
 
         Self {
@@ -214,8 +215,11 @@ impl Renderer {
         self.frame_state.request_swapchain_recreate();
     }
 
-    pub fn recreate_swapchain(&mut self, window_manager: &WindowManager) {
-
+    pub fn recreate_swapchain(
+        &mut self, 
+        window_manager: &WindowManager,
+        assets: &mut AssetManager
+    ) {
         let recreated = self.swapchain_manager.recreate(
             &self.vulkan_context,
             window_manager,
@@ -228,14 +232,16 @@ impl Renderer {
 
         self.frame_state.clear_swapchain_recreate();
 
-        self.scene.create_pipelines(
-            self.vulkan_context.get_device(), 
-            self.render_pass.clone(), 
-            self.swapchain_manager.get_viewport().clone(), 
-            self.swapchain_manager.get_samples(), 
-            self.swapchain_manager.enable_depth(),
-            &self.descriptor_manager
-        );
+        for material in assets.materials.iter_mut() {
+            material.recreate_pipeline(
+                self.vulkan_context.get_device(), 
+                self.render_pass.clone(), 
+                self.swapchain_manager.get_viewport().clone(), 
+                self.swapchain_manager.get_samples(), 
+                self.swapchain_manager.enable_depth(),
+                &self.descriptor_manager
+            );
+        }
 
         let render_items = self.scene.get_render_items();
 
@@ -245,15 +251,23 @@ impl Renderer {
             self.swapchain_manager.get_samples() as u32,
             self.swapchain_manager.get_framebuffers(),
             &render_items,
+            assets
         );
 
         self.frame_state.fences = vec![None; self.swapchain_manager.get_swapchain_images().len()];
         self.frame_state.previous_fence_i = 0;
     }
 
-    pub fn render(&mut self, window_manager: &WindowManager) {
+    pub fn render(
+        &mut self, 
+        window_manager: &WindowManager,
+        assets: &mut AssetManager
+    ) {
         if self.frame_state.recreate_swapchain {
-            self.recreate_swapchain(window_manager);
+            self.recreate_swapchain(
+                window_manager,
+                assets
+            );
         }
 
         let swapchain = self.swapchain_manager.get_swapchain();
@@ -327,6 +341,7 @@ impl Renderer {
         msaa: u32,
         framebuffers: &Vec<Arc<Framebuffer>>,
         render_items: &Vec<RenderItem>,
+        assets: &AssetManager
     ) -> Vec<Arc<PrimaryAutoCommandBuffer>> {
         framebuffers
             .iter()
@@ -336,7 +351,8 @@ impl Renderer {
                     enable_depth,
                     msaa,
                     framebuffer.clone(), 
-                    render_items
+                    render_items,
+                    assets
                 )
             })
             .collect()
@@ -348,6 +364,7 @@ impl Renderer {
         msaa: u32,
         framebuffer: Arc<Framebuffer>,
         render_items: &Vec<RenderItem>,
+        assets: &AssetManager
     ) -> Arc<PrimaryAutoCommandBuffer> {
         let clear_color = [0.5, 0.5, 0.5, 1.0];
 
@@ -396,27 +413,30 @@ impl Renderer {
             .unwrap();
 
         for item in render_items {
-            let pipeline = item.get_pipeline();
+            let mesh = item.get_mesh(assets);
+            let material = item.get_material(assets);
+
+            let pipeline: Arc<GraphicsPipeline> = material.get_pipeline();
 
             builder
                 .bind_pipeline_graphics(pipeline.clone())
                 .unwrap()
-                .bind_descriptor_sets(PipelineBindPoint::Graphics, pipeline.layout().clone(), 1, item.get_descriptor_set())
+                .bind_descriptor_sets(PipelineBindPoint::Graphics, pipeline.layout().clone(), 1, material.get_descriptor_set())
                 .unwrap()
-                .bind_vertex_buffers(0, item.get_vertex_buffer())
+                .bind_vertex_buffers(0, mesh.get_vertex_buffer())
                 .unwrap();
 
-            if let Some(idx_buffer) = item.get_index_buffer() {
+            if let Some(idx_buffer) = mesh.index_buffer.clone() {
                 builder
                     .bind_index_buffer(
                         IndexBuffer::from(idx_buffer)
                     )
                     .unwrap()
-                    .draw_indexed(item.get_num_indices(), 1, 0, 0, 0)
+                    .draw_indexed(mesh.get_num_indices(), 1, 0, 0, 0)
                     .unwrap();
             } else {
                 builder
-                    .draw(item.get_num_vertices(), 1, 0, 0)
+                    .draw(mesh.get_num_vertices(), 1, 0, 0)
                     .unwrap();
             }
         }

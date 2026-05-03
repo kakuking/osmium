@@ -12,4 +12,9 @@ Now approahcing new horizons and feeling my way through it
 - [x] More flexible pipeline creation
 - [x] Added proper scene creation
 - [x] Added window configuration
+- [x] Added Material Configuration
+- [x] Added Materials with Textures
+- [x] Added Asset manager partially
+- [ ] Add Shaders and textures to asset manager 
+- [ ] Add ECS
 - [ ] and then ...

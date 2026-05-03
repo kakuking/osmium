@@ -10,45 +10,47 @@ use crate::engine::{
     }, 
     renderer::renderer::Renderer, 
     scene::{
-        mesh::{
+        asset_manager::AssetManager, mesh::{
             Mesh, 
             OsmiumVertex
-        }, 
-        scene::Scene
+        }, scene::Scene
     }, window::window_manager::WindowManager 
 };
 
 pub struct OsmiumEngine {
     pub renderer: Renderer,
     pub window_manager: WindowManager,
+    pub assets: AssetManager,
     pub event_loop: EventLoop<()>
 }
 
 impl OsmiumEngine {
     pub fn init() -> Self {
         let mut config = RendererConfig::new();
-        config.render_pass.samples = 2;
+        config.render_pass.samples = 1;
 
         let event_loop = EventLoop::new();
 
-        let scene = Self::create_basic_scene();
+        let (scene, mut assets) = Self::create_basic_scene();
         
         let mut window_manager = WindowManager::init(&config.window_config, &event_loop);
 
         let renderer = Renderer::init(
             &mut window_manager,
+            config,
             scene, 
-            config
+            &mut assets
         );
 
         Self {
             renderer,
             window_manager,
+            assets,
             event_loop
         }
     }
 
-    fn create_basic_scene() -> Scene {
+    fn create_basic_scene() -> (Scene, AssetManager) {
         let triangles = vec![
             OsmiumVertex { position: [-0.8, -0.5, 0.0], uv: [0.0, 0.0]},
             OsmiumVertex { position: [ -0.3,  0.5, 0.0], uv: [0.0, 1.0] },
@@ -68,17 +70,25 @@ impl OsmiumEngine {
         let material_config = MaterialConfig::new();
 
         let mut scene = Scene::new();
-        scene.meshes.push(mesh);
-        scene.meshes.push(mesh2);
 
-        scene.material_configs.push(material_config);
+        let mut asset_manager = AssetManager::new();
 
-        scene
+        let mesh_handle = asset_manager.add_mesh(mesh); //.push(mesh);
+        let mesh2_handle = asset_manager.add_mesh(mesh2); //.push(mesh);
+        // scene.meshes.push(mesh2);
+
+        let material_handle = asset_manager.add_material_config(material_config); //.material_configs.push(material_config);
+
+        scene.add_object(mesh_handle, material_handle);
+        scene.add_object(mesh2_handle, material_handle);
+
+        (scene, asset_manager)
     }
 
     pub unsafe fn run(self) {
         let mut renderer = self.renderer;
         let window_manager = self.window_manager;
+        let mut assets = self.assets;
         let event_loop = self.event_loop;
 
         event_loop.run(move |event, _, control_flow| {
@@ -102,8 +112,11 @@ impl OsmiumEngine {
                 }
 
                 Event::MainEventsCleared => {
-                    renderer.render(&window_manager);
-                    window_manager.set_visibility(true);
+                    renderer.render(
+                        &window_manager,
+                        &mut assets
+                    );
+                    // window_manager.set_visibility(true);
                 }
 
                 _ => {}
