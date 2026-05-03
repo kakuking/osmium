@@ -14,7 +14,10 @@ use crate::engine::renderer::buffer_manager::BufferManager;
 #[repr(C)]
 pub struct OsmiumVertex {
     #[format(R32G32B32_SFLOAT)]
-    pub position: [f32; 3]
+    pub position: [f32; 3],
+
+    #[format(R32G32_SFLOAT)]
+    pub uv: [f32; 2],
 }
 
 pub struct Mesh {

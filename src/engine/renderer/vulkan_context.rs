@@ -26,7 +26,7 @@ use vulkano::{
 };
 
 use crate::engine::{
-    renderer::config::RendererConfig, 
+    config::config::RendererConfig, 
     window::window_manager::WindowManager
 };
 
@@ -156,7 +156,7 @@ impl VulkanContext {
             })
             .collect();
 
-            for preferred_gpu in &config.gpu_priority {
+            for preferred_gpu in &config.get_gpu_priority() {
                 for (device_gpu, queue) in &gpus {
                     if device_gpu.properties().device_type == *preferred_gpu {
                         return (device_gpu.clone(), *queue);

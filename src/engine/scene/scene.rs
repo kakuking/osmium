@@ -2,25 +2,27 @@ use std::sync::Arc;
 
 use vulkano::{
     buffer::Subbuffer, 
-    device::Device, 
-    image::SampleCount, 
+    command_buffer::allocator::StandardCommandBufferAllocator, 
+    descriptor_set::PersistentDescriptorSet, 
+    device::{
+        Device, Queue
+    }, image::SampleCount, 
+    memory::allocator::MemoryAllocator, 
     pipeline::{
         GraphicsPipeline, 
         graphics::viewport::Viewport
-    }, 
-    render_pass::RenderPass
+    }, render_pass::RenderPass
 };
 
 use crate::engine::{
+    config::material::MaterialConfig, 
     renderer::{
         buffer_manager::BufferManager, 
+        descriptor_manager::DescriptorManager, 
+        image_manager::ImageManager, 
         shader_manager::ShaderManager
-    }, 
-    scene::{
-        material::{
-            Material, 
-            MaterialConfig
-        }, 
+    }, scene::{
+        material::Material, 
         mesh::{
             Mesh, 
             OsmiumVertex
@@ -56,6 +58,10 @@ impl RenderItem {
     pub fn get_pipeline(&self) -> Arc<GraphicsPipeline> {
         self.material.get_pipeline()
     }
+
+    pub fn get_descriptor_set(&self) -> Arc<PersistentDescriptorSet> {
+        self.material.get_descriptor_set()
+    }
 }
 
 pub struct Scene {
@@ -79,10 +85,25 @@ impl Scene {
         }
     }
 
-    pub fn create_materials(&mut self, shader_manager: &ShaderManager) {
+    pub fn create_materials(&mut self, 
+        shader_manager: &ShaderManager,
+        image_manager: &ImageManager,
+        buffer_manager: &BufferManager,
+        command_buffer_allocator: &StandardCommandBufferAllocator,
+        queue: Arc<Queue>,
+        memory_allocator: Arc<dyn MemoryAllocator>,
+    ) {
         for config in &self.material_configs {
             self.materials.push(
-                Material::init(config, shader_manager)
+                Material::init(
+                    config,
+                    shader_manager,
+                    image_manager,
+                    buffer_manager,
+                    command_buffer_allocator,
+                    queue.clone(),
+                    memory_allocator.clone(),
+                )
             );
         }
     }
@@ -93,7 +114,8 @@ impl Scene {
         render_pass: Arc<RenderPass>, 
         viewport: Viewport,
         samples: SampleCount,
-        depth_enabled: bool
+        enable_depth: bool,
+        descriptor_manager: &DescriptorManager,
     ) {
         for material in &mut self.materials {
             material.recreate_pipeline(
@@ -101,7 +123,8 @@ impl Scene {
                 render_pass.clone(), 
                 viewport.clone(), 
                 samples, 
-                depth_enabled
+                enable_depth,
+                descriptor_manager
             );
         }
     }

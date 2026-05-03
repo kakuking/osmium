@@ -27,7 +27,7 @@ impl BufferManager {
     }
 
     pub fn create_buffer_from_data<T: BufferContents + Debug>(
-        &mut self, 
+        &self, 
         data: T,
         usage: Option<BufferUsage>,
         memory_type_filter: Option<MemoryTypeFilter>

@@ -15,7 +15,10 @@ use vulkano::{
 
 use crate::engine::{
     renderer::{
-        config::RendererConfig, image_manager::ImageManager, vulkan_context::VulkanContext
+        image_manager::ImageManager, vulkan_context::VulkanContext
+    },
+    config::{
+        config::RendererConfig
     }, 
     window::window_manager::WindowManager
 };
@@ -78,10 +81,10 @@ impl SwapchainManager {
             samples,
         );
 
-        let depth_images = if config.depth_enabled {
+        let depth_images = if config.enable_depth {
             Self::create_depth_images(
                 vulkan_context, 
-                config.depth_enabled,
+                config.enable_depth,
                 Some(depth_format), 
                 dims.width, 
                 dims.height, 
@@ -104,7 +107,7 @@ impl SwapchainManager {
             &msaa_images,
             &depth_images,
             render_pass,
-            config.depth_enabled,
+            config.enable_depth,
             samples,
         );
 
@@ -134,14 +137,14 @@ impl SwapchainManager {
 
     fn create_depth_images(
         vulkan_context: &VulkanContext,
-        depth_enabled: bool,
+        enable_depth: bool,
         depth_format: Option<Format>,
         width: u32,
         height: u32,
         count: usize,
         samples: SampleCount,
     ) -> Vec<Arc<Image>> {
-        if !depth_enabled {
+        if !enable_depth {
             return Vec::new();
         }
 
@@ -206,7 +209,7 @@ impl SwapchainManager {
         msaa_images: &Vec<Arc<Image>>,
         depth_images: &Vec<Arc<Image>>,
         render_pass: Arc<RenderPass>,
-        depth_enabled: bool,
+        enable_depth: bool,
         samples: SampleCount,
     ) -> Vec<Arc<Framebuffer>> {
         swapchain_images
@@ -217,7 +220,7 @@ impl SwapchainManager {
                     image.clone()
                 );
 
-                let attachments = match (depth_enabled, samples == SampleCount::Sample1) {
+                let attachments = match (enable_depth, samples == SampleCount::Sample1) {
                     (false, true) => {
                         vec![swapchain_view]
                     }
@@ -294,12 +297,12 @@ impl SwapchainManager {
             self.samples
         );
 
-        let depth_enabled = self.depth_images.len() != 0;
+        let enable_depth = self.depth_images.len() != 0;
 
         let depth_images = 
             Self::create_depth_images(
                 vulkan_context, 
-                depth_enabled,
+                enable_depth,
                 self.get_depth_format(), 
                 dims.width, 
                 dims.height, 
@@ -318,7 +321,7 @@ impl SwapchainManager {
             &msaa_images,
             &depth_images,
             render_pass,
-            depth_enabled,
+            enable_depth,
             self.samples,
         );
 
@@ -355,7 +358,7 @@ impl SwapchainManager {
         self.samples
     }
 
-    pub fn depth_enabled(&self) -> bool {
+    pub fn enable_depth(&self) -> bool {
         self.depth_images.len() > 0
     }
 

@@ -7,6 +7,9 @@ edition = "2024"
 vulkano = "0.34.0"
 shaderc = "0.10"
 winit = "0.28.0"
+image = "*"
+serde = { version = "1.0", features = ["derive"] }
+toml = "0.8"
 
 # For VUlkano optimization
 [profile.dev]

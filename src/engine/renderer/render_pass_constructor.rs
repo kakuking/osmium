@@ -6,7 +6,7 @@ use vulkano::{
     render_pass::RenderPass
 };
 
-use crate::engine::renderer::config::RendererConfig;
+use crate::engine::config::config::RendererConfig;
 
 pub struct RenderPassConstructor {
 
@@ -19,7 +19,7 @@ impl RenderPassConstructor {
         image_format: Format,
         depth_format: Format
     ) -> Arc<RenderPass> {
-        match (config.depth_enabled, config.render_pass.samples) {
+        match (config.enable_depth, config.render_pass.samples) {
             (false, 1) => Self::color(config, device, image_format),
             (false, _) => Self::color_msaa(config, device, image_format),
             (true, 1) => Self::color_depth(config, device, image_format, depth_format),

@@ -50,7 +50,7 @@ impl PipelineConstructor {
         render_pass: Arc<RenderPass>, 
         viewport: Viewport,
         samples: SampleCount,
-        depth_enabled: bool
+        enable_depth: bool
     ) -> Arc<GraphicsPipeline>
     where
         V: BufferContents + Vertex
@@ -79,7 +79,7 @@ impl PipelineConstructor {
             render_pass.clone(), 0
         ).unwrap();
 
-        let depth_stencil_state = if depth_enabled {
+        let depth_stencil_state = if enable_depth {
             Some(
                 DepthStencilState {
                     depth: Some(DepthState::simple()),

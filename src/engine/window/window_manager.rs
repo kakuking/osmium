@@ -18,7 +18,7 @@ use winit::{
     }
 };
 
-use crate::engine::renderer::config::WindowConfig;
+use crate::engine::config::window::WindowConfig;
 
 pub struct WindowManager {
     window: Arc<Window>,
@@ -59,9 +59,9 @@ impl WindowManager {
         .with_title(&config.title)
             .with_active(config.active)
             .with_decorations(config.decorations)
-            .with_enabled_buttons(config.enabled_buttons)
+            .with_enabled_buttons(config.enabled_buttons())
             .with_resizable(config.resizable)
-            .with_inner_size(config.size)
+            .with_inner_size(config.size())
             .with_window_icon(window_icon)
             .with_taskbar_icon(taskbar_icon)
             .with_visible(false)

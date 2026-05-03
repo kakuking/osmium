@@ -4,18 +4,18 @@ use winit::{
 };
 
 use crate::engine::{
-    renderer::{
+    config::{
         config::RendererConfig, 
-        renderer::Renderer
-    }, scene::{
-        material::MaterialConfig, 
+        material::MaterialConfig
+    }, 
+    renderer::renderer::Renderer, 
+    scene::{
         mesh::{
             Mesh, 
             OsmiumVertex
         }, 
         scene::Scene
-    }, 
-    window::window_manager::WindowManager 
+    }, window::window_manager::WindowManager 
 };
 
 pub struct OsmiumEngine {
@@ -50,19 +50,19 @@ impl OsmiumEngine {
 
     fn create_basic_scene() -> Scene {
         let triangles = vec![
-            OsmiumVertex { position: [-0.8, -0.5, 0.0] },
-            OsmiumVertex { position: [ -0.3,  0.5, 0.0] },
-            OsmiumVertex { position: [ 0.2, -0.5, 0.0] },
+            OsmiumVertex { position: [-0.8, -0.5, 0.0], uv: [0.0, 0.0]},
+            OsmiumVertex { position: [ -0.3,  0.5, 0.0], uv: [0.0, 1.0] },
+            OsmiumVertex { position: [ 0.2, -0.5, 0.0], uv: [1.0, 0.0] },
+        ];
+
+        
+        let triangles2 = vec![
+            OsmiumVertex { position: [-0.2, 0.5, 0.0], uv: [0.0, 1.0] },
+            OsmiumVertex { position: [ 0.3, -0.5, 0.0], uv: [1.0, 0.0] },
+            OsmiumVertex { position: [ 0.8, 0.5, 0.0], uv: [1.0, 1.0] },
         ];
 
         let mesh = Mesh::init(triangles, None);
-
-        let triangles2 = vec![
-            OsmiumVertex { position: [-0.2, 0.5, 0.0] },
-            OsmiumVertex { position: [ 0.3, -0.5, 0.0] },
-            OsmiumVertex { position: [ 0.8, 0.5, 0.0] },
-        ];
-
         let mesh2 = Mesh::init(triangles2, None);
 
         let material_config = MaterialConfig::new();

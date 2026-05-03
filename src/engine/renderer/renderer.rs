@@ -10,7 +10,11 @@ use vulkano::{
         SubpassBeginInfo, 
         SubpassContents, 
         SubpassEndInfo
-    }, format::{ClearValue, Format}, render_pass::{
+    }, format::{
+        ClearValue, Format
+    }, pipeline::{
+        Pipeline, PipelineBindPoint
+    }, render_pass::{
         Framebuffer, RenderPass
     }, swapchain::{
         self, 
@@ -30,13 +34,14 @@ use vulkano::{
 use crate::engine::{
     renderer::{
         buffer_manager::BufferManager, 
-        config::RendererConfig, 
         descriptor_manager::DescriptorManager, 
         image_manager::ImageManager, 
         render_pass_constructor::RenderPassConstructor, 
         shader_manager::ShaderManager, 
         swapchain_manager::SwapchainManager, 
         vulkan_context::VulkanContext
+    }, config::{
+        config::RendererConfig, 
     }, scene::{
         scene::{
             RenderItem, Scene
@@ -111,7 +116,7 @@ impl Renderer {
         );
 
         let image_manager = ImageManager::init(
-            vulkan_context.get_memory_allocator()
+            vulkan_context.get_memory_allocator(),
         );
 
         let shader_manager = Arc::new(
@@ -157,7 +162,15 @@ impl Renderer {
 
         let mut scene = scene;
 
-        scene.create_materials(&shader_manager);
+        scene.create_materials(
+            &shader_manager, 
+            &image_manager,
+            &buffer_manager,
+            &vulkan_context.command_buffer_allocator,
+            vulkan_context.queue.clone(),
+            vulkan_context.memory_allocator.clone()
+        );
+
         scene.initiallize_buffers(&buffer_manager);
 
         scene.create_pipelines(
@@ -165,12 +178,13 @@ impl Renderer {
             render_pass.clone(), 
             swapchain_manager.get_viewport().clone(), 
             swapchain_manager.get_samples(), 
-            config.depth_enabled
+            config.enable_depth,
+            &descriptor_manager
         );
 
         let command_buffers: Vec<Arc<PrimaryAutoCommandBuffer>> = Self::create_command_buffers(
             &vulkan_context, 
-            swapchain_manager.depth_enabled(),
+            swapchain_manager.enable_depth(),
             config.render_pass.samples,
             swapchain_manager.get_framebuffers(), 
             &scene.get_render_items()
@@ -219,14 +233,15 @@ impl Renderer {
             self.render_pass.clone(), 
             self.swapchain_manager.get_viewport().clone(), 
             self.swapchain_manager.get_samples(), 
-            self.swapchain_manager.depth_enabled()
+            self.swapchain_manager.enable_depth(),
+            &self.descriptor_manager
         );
 
         let render_items = self.scene.get_render_items();
 
         self.command_buffers = Self::create_command_buffers(
             &self.vulkan_context,
-            self.swapchain_manager.depth_enabled(),
+            self.swapchain_manager.enable_depth(),
             self.swapchain_manager.get_samples() as u32,
             self.swapchain_manager.get_framebuffers(),
             &render_items,
@@ -308,7 +323,7 @@ impl Renderer {
 
     fn create_command_buffers(
         vulkan_context: &VulkanContext,
-        depth_enabled: bool,
+        enable_depth: bool,
         msaa: u32,
         framebuffers: &Vec<Arc<Framebuffer>>,
         render_items: &Vec<RenderItem>,
@@ -318,7 +333,7 @@ impl Renderer {
             .map(|framebuffer| {
                 Self::create_one_command_buffer(
                     vulkan_context, 
-                    depth_enabled,
+                    enable_depth,
                     msaa,
                     framebuffer.clone(), 
                     render_items
@@ -329,14 +344,14 @@ impl Renderer {
 
     fn create_one_command_buffer(
         vulkan_context: &VulkanContext,
-        depth_enabled: bool,
+        enable_depth: bool,
         msaa: u32,
         framebuffer: Arc<Framebuffer>,
         render_items: &Vec<RenderItem>,
     ) -> Arc<PrimaryAutoCommandBuffer> {
         let clear_color = [0.5, 0.5, 0.5, 1.0];
 
-        let clear_values: Vec<Option<ClearValue>> = match (depth_enabled, msaa) {
+        let clear_values: Vec<Option<ClearValue>> = match (enable_depth, msaa) {
             (false, 1) => {
                 vec![Some(clear_color.into())]
             },
@@ -385,6 +400,8 @@ impl Renderer {
 
             builder
                 .bind_pipeline_graphics(pipeline.clone())
+                .unwrap()
+                .bind_descriptor_sets(PipelineBindPoint::Graphics, pipeline.layout().clone(), 1, item.get_descriptor_set())
                 .unwrap()
                 .bind_vertex_buffers(0, item.get_vertex_buffer())
                 .unwrap();

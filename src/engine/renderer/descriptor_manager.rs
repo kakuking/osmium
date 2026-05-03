@@ -11,7 +11,10 @@ use vulkano::{
         allocator::StandardDescriptorSetAllocator
     }, 
     device::Device, 
-    image::view::ImageView, 
+    image::{
+        sampler::Sampler, 
+        view::ImageView
+    }, 
     pipeline::Pipeline
 };
 
@@ -39,7 +42,6 @@ impl DescriptorManager {
         let pipeline_layout = pipeline.layout();
 
         let ds_layouts = pipeline_layout.set_layouts();
-
         let ds_layout = ds_layouts.get(set_index).unwrap();
 
         PersistentDescriptorSet::new(
@@ -63,14 +65,19 @@ impl DescriptorManager {
         );
     }
 
-    pub fn add_image_view(
+    pub fn add_image_view_sampler(
         &self, 
         writes: &mut Vec<WriteDescriptorSet>,
         binding: u32,
-        view: Arc<ImageView>) 
+        image_view: Arc<ImageView>,
+        sampler: Arc<Sampler>) 
     {
         writes.push(
-            WriteDescriptorSet::image_view(binding, view)
-        );
+            WriteDescriptorSet::image_view_sampler(
+                binding, 
+                image_view, 
+                sampler
+            )
+        )
     }
 }
