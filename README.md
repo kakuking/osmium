@@ -17,7 +17,7 @@ Now approahcing new horizons and feeling my way through it
 - [x] Added Asset manager partially
 - [x] Add Shaders and textures to asset manager
 - [x] Added FPS limiter
-- [x] Add ECS ???
+- [x] Add ECS
 - [ ] Add Render Graph \*\*\*\*\*\*
 - [ ] and then ...
 

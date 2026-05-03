@@ -1,14 +1,15 @@
+// use vulkano::descriptor_set::PersistentDescriptorSet;
+
 use crate::engine::{
     scene::{
-        asset_manager::{AssetManager, Handle}, material::Material, mesh::{
-            Mesh
-        }
+        asset_manager::{AssetManager, Handle}, material::Material, mesh::Mesh
     }
 };
 
 pub struct RenderItem {
-    mesh: Handle<Mesh>,
-    material: Handle<Material>
+    pub mesh: Handle<Mesh>,
+    // pub object_descriptor_set: Arc<PersistentDescriptorSet>,
+    pub material: Handle<Material>
 }
 
 impl RenderItem {
@@ -21,40 +22,35 @@ impl RenderItem {
     }
 }
 
-pub struct SceneObject {
-    pub mesh: Handle<Mesh>,
-    pub material: Handle<Material>
-}
-
 pub struct Scene {
-    pub objects: Vec<SceneObject>
+    // pub objects: Vec<SceneObject>
 }
 
 impl Scene {
     pub fn new() -> Self {
         Self {
-            objects: Vec::new(),
+            // objects: Vec::new(),
         }
     }
 
-    pub fn add_object(
-        &mut self,
-        mesh: Handle<Mesh>,
-        material: Handle<Material>,
-    ) {
-        self.objects.push(SceneObject {
-            mesh,
-            material,
-        });
-    }
+    // pub fn add_object(
+    //     &mut self,
+    //     mesh: Handle<Mesh>,
+    //     material: Handle<Material>,
+    // ) {
+    //     self.objects.push(SceneObject {
+    //         mesh,
+    //         material,
+    //     });
+    // }
 
-    pub fn get_render_items(&self) -> Vec<RenderItem> {
-        self.objects
-            .iter()
-            .map(|object| RenderItem {
-                mesh: object.mesh,
-                material: object.material,
-            })
-            .collect()
-    }
+    // pub fn get_render_items(&self) -> Vec<RenderItem> {
+    //     self.objects
+    //         .iter()
+    //         .map(|object| RenderItem {
+    //             mesh: object.mesh,
+    //             material: object.material,
+    //         })
+    //         .collect()
+    // }
 }

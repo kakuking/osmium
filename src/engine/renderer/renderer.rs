@@ -42,7 +42,7 @@ use crate::engine::{
         vulkan_context::VulkanContext
     }, scene::{
         asset_manager::AssetManager, scene::{
-            RenderItem, Scene
+            RenderItem,
         }
     }, window::window_manager::WindowManager
 };
@@ -56,6 +56,7 @@ type FenceType = FenceSignalFuture<
 >;
 
 struct FrameState {
+    pub frames_in_flight: usize,
     recreate_swapchain: bool,
     previous_fence_i: usize,
     fences: Vec<Option<Arc<FenceType>>>
@@ -64,6 +65,7 @@ struct FrameState {
 impl FrameState {
     fn new(frames_in_flight: usize) -> Self {
         Self {
+            frames_in_flight,
             recreate_swapchain: false,
             previous_fence_i: 0,
             fences: vec![None; frames_in_flight],
@@ -88,18 +90,19 @@ pub struct Renderer {
     pub buffer_manager: BufferManager,
     pub image_manager: ImageManager,
     
-    swapchain_manager: SwapchainManager,
     frame_state: FrameState,
+    swapchain_manager: SwapchainManager,
     command_buffers: Vec<Arc<PrimaryAutoCommandBuffer>>,
-    
-    scene: Scene
+
+    // scene: Scene
 }
 
 impl Renderer {
     pub fn init(
         window_manager: &mut WindowManager,
         config: &RendererConfig,
-        scene: Scene,
+        // scene: Scene,
+        render_items: &Vec<RenderItem>,
         assets: &mut AssetManager,
     ) -> Renderer
     {
@@ -193,7 +196,7 @@ impl Renderer {
             swapchain_manager.enable_depth(),
             config.render_pass.samples,
             swapchain_manager.get_framebuffers(), 
-            &scene.get_render_items(),
+            render_items,
             assets
         );
 
@@ -209,7 +212,7 @@ impl Renderer {
 
             swapchain_manager,
             frame_state,
-            scene,
+            // scene,
         }
     }
 
@@ -221,10 +224,26 @@ impl Renderer {
         self.frame_state.request_swapchain_recreate();
     }
 
+    pub fn rebuild_command_buffers(
+        &mut self,
+        render_items: &Vec<RenderItem>,
+        assets: &AssetManager,
+    ) {
+        self.command_buffers = Self::create_command_buffers(
+            &self.vulkan_context,
+            self.swapchain_manager.enable_depth(),
+            self.swapchain_manager.get_samples() as u32,
+            self.swapchain_manager.get_framebuffers(),
+            render_items,
+            assets,
+        );
+    }
+
     pub fn recreate_swapchain(
         &mut self, 
         window_manager: &WindowManager,
-        assets: &mut AssetManager
+        assets: &mut AssetManager,
+        render_items: &Vec<RenderItem>,
     ) {
         let recreated = self.swapchain_manager.recreate(
             &self.vulkan_context,
@@ -254,7 +273,7 @@ impl Renderer {
             );
         }
 
-        let render_items = self.scene.get_render_items();
+        // let render_items = self.scene.get_render_items();
 
         self.command_buffers = Self::create_command_buffers(
             &self.vulkan_context,
@@ -272,12 +291,14 @@ impl Renderer {
     pub fn render(
         &mut self, 
         window_manager: &WindowManager,
-        assets: &mut AssetManager
+        assets: &mut AssetManager,
+        render_items: &Vec<RenderItem>,
     ) {
         if self.frame_state.recreate_swapchain {
             self.recreate_swapchain(
                 window_manager,
-                assets
+                assets,
+                render_items
             );
         }
 
@@ -345,6 +366,14 @@ impl Renderer {
 
         self.frame_state.previous_fence_i = image_i as usize;
     } 
+
+    pub fn frames_in_flight(&self) -> usize {
+        self.frame_state.frames_in_flight
+    }
+
+    pub fn current_frame_index(&self) -> usize {
+        self.frame_state.previous_fence_i
+    }
 
     fn create_command_buffers(
         vulkan_context: &VulkanContext,
