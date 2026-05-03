@@ -18,6 +18,7 @@ Now approahcing new horizons and feeling my way through it
 - [x] Add Shaders and textures to asset manager
 - [x] Added FPS limiter
 - [x] Add ECS
+- [x] Added Transforms as push constants
 - [ ] Add Render Graph \*\*\*\*\*\*
 - [ ] and then ...
 

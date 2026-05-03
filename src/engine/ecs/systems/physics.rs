@@ -43,7 +43,7 @@ impl SystemTrait for PhysicsSystem {
 
             {
                 let rigid_body = coordinator.get_component_mut::<RigidBody>(entity);
-                rigid_body.velocity = rigid_body.velocity.add_scalar(gravity * dt);
+                rigid_body.velocity.y += gravity * dt;
             }
 
             let velocity = coordinator.get_component::<RigidBody>(entity).velocity;

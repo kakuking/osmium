@@ -23,7 +23,6 @@ use crate::engine::{
             Mesh, 
             OsmiumVertex
         }, 
-        scene::Scene
     }, 
     window::window_manager::WindowManager 
 };
@@ -81,7 +80,7 @@ impl OsmiumEngine {
         coordinator.set_system_signature::<RenderSystem>(render_signature);
 
 
-        let (_, mut assets) = Self::create_basic_scene(&mut coordinator);
+        let mut assets = Self::create_basic_scene(&mut coordinator);
 
         
         let mut window_manager = WindowManager::init(&config.window_config, &event_loop);
@@ -103,7 +102,7 @@ impl OsmiumEngine {
         }
     }
 
-    fn create_basic_scene(coordinator: &mut Coordinator) -> (Scene, AssetManager) {
+    fn create_basic_scene(coordinator: &mut Coordinator) -> AssetManager {
         let triangles = vec![
             OsmiumVertex { position: [-0.8, -0.5, 0.0], uv: [0.0, 0.0]},
             OsmiumVertex { position: [ -0.3,  0.5, 0.0], uv: [0.0, 1.0] },
@@ -120,8 +119,6 @@ impl OsmiumEngine {
         let mesh = Mesh::init(triangles, None);
         let material_config = MaterialConfig::new();
         let mesh2 = Mesh::init(triangles2, None);
-
-        let scene = Scene::new();
 
         let mut asset_manager = AssetManager::new();
 
@@ -143,7 +140,7 @@ impl OsmiumEngine {
         coordinator.add_component(entity2, Gravity::new());
         coordinator.add_component(entity2, RigidBody::new());
 
-        (scene, asset_manager)
+        asset_manager
     }
 
     pub unsafe fn run(self) {
@@ -203,6 +200,11 @@ impl OsmiumEngine {
 
                     coordinator
                         .update_systems(dt);
+
+                    renderer.rebuild_command_buffers(
+                        &coordinator.get_render_items(), 
+                        &assets
+                    );
 
                     renderer.render(
                         &window_manager,

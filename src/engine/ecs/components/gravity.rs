@@ -8,4 +8,10 @@ impl Gravity {
             g: 9.8
         }
     }
+
+    pub fn init(g: f32) -> Self {
+        Self {
+            g
+        }
+    }
 }

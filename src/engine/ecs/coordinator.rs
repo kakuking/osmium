@@ -1,8 +1,18 @@
-use vulkano::descriptor_set::allocator::StandardDescriptorSetAllocator;
 
-use crate::engine::{ecs::{
-    ComponentType, Entity, component_manager::ComponentManager, components::{renderable::MeshRenderable, transform::Transform}, entity_manager::EntityManager, signature::Signature, system::SystemTrait, system_manager::SystemManager, systems::render::RenderSystem
-}, renderer::buffer_manager::BufferManager, scene::{asset_manager::AssetManager, scene::RenderItem}};
+use crate::engine::{
+    ecs::{
+        ComponentType, 
+        Entity, 
+        component_manager::ComponentManager, 
+        components::{renderable::MeshRenderable, transform::Transform}, 
+        entity_manager::EntityManager, 
+        signature::Signature, 
+        system::SystemTrait, 
+        system_manager::SystemManager, 
+        systems::render::RenderSystem
+    }, 
+    scene::render_item::RenderItem
+};
 
 pub struct WorldCoordinator {
     component_manager: ComponentManager,
@@ -119,56 +129,6 @@ impl Coordinator {
         );
     }
 
-    pub fn prepare_renderables(
-        &mut self,
-        buffer_manager: &BufferManager,
-        descriptor_set_allocator: &StandardDescriptorSetAllocator,
-        assets: &AssetManager,
-    ) {
-        let entities: Vec<Entity> = self
-            .get_system::<RenderSystem>()
-            .entities
-            .iter()
-            .copied()
-            .collect();
-
-        for entity in entities {
-            let transform = *self.get_component::<Transform>(entity);
-
-            let renderable = self.get_component_mut::<MeshRenderable>(entity);
-
-            if renderable.object_descriptor_set.is_some() {
-                continue;
-            }
-
-            let material = assets.materials.get(renderable.material);
-            let pipeline = material.get_pipeline();
-
-            renderable.create_gpu_resources(
-                buffer_manager,
-                descriptor_set_allocator,
-                pipeline,
-                &transform,
-            );
-        }
-    }
-
-    pub fn update_renderable_buffers(&mut self) {
-        let entities: Vec<Entity> = self
-            .get_system::<RenderSystem>()
-            .entities
-            .iter()
-            .copied()
-            .collect();
-
-        for entity in entities {
-            let transform = *self.get_component::<Transform>(entity);
-
-            let renderable = self.get_component_mut::<MeshRenderable>(entity);
-
-            renderable.update_transform_resources(&transform);
-        }
-    }
 
     pub fn get_render_items(&self) -> Vec<RenderItem> {
         let render_system = self.get_system::<RenderSystem>();
@@ -178,16 +138,13 @@ impl Coordinator {
             .iter()
             .map(|entity| {
                 let mesh_renderable = self.get_component::<MeshRenderable>(*entity);
-
-                // let object_ds = mesh_renderable.object_descriptor_set
-                //     .as_ref()
-                //     .expect("MeshRenderable GPU Resources not yet created")
-                //     .clone();
-
+                let transform = self.get_component::<Transform>(*entity);
+                
                 RenderItem {
                     mesh: mesh_renderable.mesh,
-                    // object_descriptor_set: object_ds,
-                    material: mesh_renderable.material
+                    material: mesh_renderable.material,
+
+                    model_matrix: transform.model_matrix()
                 }
             })
             .collect()

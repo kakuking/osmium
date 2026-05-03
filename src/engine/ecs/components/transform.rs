@@ -17,12 +17,11 @@ impl Transform {
     }
 
     pub fn model_matrix(&self) -> [[f32; 4]; 4] {
-        // temporary example
         [
-            [1.0, 0.0, 0.0, self.position[0]],
-            [0.0, 1.0, 0.0, self.position[1]],
-            [0.0, 0.0, 1.0, self.position[2]],
-            [0.0, 0.0, 0.0, 1.0],
+            [1.0, 0.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0, 0.0],
+            [0.0, 0.0, 1.0, 0.0],
+            [self.position.x, self.position.y, self.position.z, 1.0],
         ]
     }
 }
