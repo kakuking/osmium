@@ -104,7 +104,7 @@ impl SystemManager {
         dt: f32
     ) {
         for (_, system) in &mut self.systems {
-            system.update(coordinator, dt);
+            system.update_all_entities(coordinator, dt);
         }
     }
 }

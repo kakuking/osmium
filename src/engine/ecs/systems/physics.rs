@@ -37,21 +37,19 @@ impl SystemTrait for PhysicsSystem {
         &mut self.entities
     }
 
-    fn update(&self, coordinator: &mut WorldCoordinator, dt: f32) {
-        for entity in self.entities.iter().copied() {
-            let gravity = coordinator.get_component::<Gravity>(entity).g;
+    fn update(&self, entity: Entity, coordinator: &mut WorldCoordinator, dt: f32) {
+        let gravity = coordinator.get_component::<Gravity>(entity).g;
 
-            {
-                let rigid_body = coordinator.get_component_mut::<RigidBody>(entity);
-                rigid_body.velocity.y += gravity * dt;
-            }
+        {
+            let rigid_body = coordinator.get_component_mut::<RigidBody>(entity);
+            rigid_body.velocity.y += gravity * dt;
+        }
 
-            let velocity = coordinator.get_component::<RigidBody>(entity).velocity;
+        let velocity = coordinator.get_component::<RigidBody>(entity).velocity;
 
-            {
-                let t = coordinator.get_component_mut::<Transform>(entity);
-                t.position += velocity * dt;
-            }
+        {
+            let t = coordinator.get_component_mut::<Transform>(entity);
+            t.position += velocity * dt;
         }
     }
 

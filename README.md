@@ -20,6 +20,8 @@ Now approahcing new horizons and feeling my way through it
 - [x] Add ECS
 - [x] Added Transforms as push constants
 - [x] Added input/event manager
+- [x] Added User Controller
+- [ ] Add Physics Simulation (Rapier)
 - [ ] Add Render Graph \*\*\*\*\*\*
 - [ ] and then ...
 

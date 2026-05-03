@@ -1,4 +1,7 @@
-use std::{any::type_name, collections::HashMap};
+use std::{
+    any::type_name, 
+    collections::HashMap
+};
 
 use crate::engine::ecs::{
     ComponentType, 

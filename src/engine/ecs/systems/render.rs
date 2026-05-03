@@ -32,7 +32,7 @@ impl SystemTrait for RenderSystem {
         &mut self.entities
     }
 
-    fn update(&self, _coordinator: &mut WorldCoordinator, _dt: f32) { }
+    fn update(&self, _entity: Entity, _coordinator: &mut WorldCoordinator, _dt: f32) { }
 
     fn as_any(&self) -> &dyn Any {
         self

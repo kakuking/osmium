@@ -4,7 +4,10 @@ use crate::engine::{
         ComponentType, 
         Entity, 
         component_manager::ComponentManager, 
-        components::{renderable::MeshRenderable, transform::Transform}, 
+        components::{
+            renderable::MeshRenderable, 
+            transform::Transform
+        }, 
         entity_manager::EntityManager, 
         signature::Signature, 
         system::SystemTrait, 

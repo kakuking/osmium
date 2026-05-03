@@ -1,6 +1,12 @@
-use std::{any::Any, collections::HashMap};
+use std::{
+    any::Any, 
+    collections::HashMap
+};
 
-use crate::engine::ecs::{Entity, MAX_ENTITIES};
+use crate::engine::ecs::{
+    Entity, 
+    MAX_ENTITIES
+};
 
 pub trait ComponentArrayTrait {
     fn entity_destroyed(&mut self, entity: Entity);
