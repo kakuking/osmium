@@ -9,14 +9,25 @@ use crate::engine::{
     config::{
         config::RendererConfig, 
         material::MaterialConfig
+    }, ecs::{
+        components::{
+            gravity::Gravity, 
+            rigid_body::RigidBody, 
+            transform::Transform
+        }, coordinator::Coordinator, 
+        signature::Signature, 
+        systems::physics::PhysicsSystem
     }, 
     renderer::renderer::Renderer, 
     scene::{
-        asset_manager::AssetManager, mesh::{
+        asset_manager::AssetManager, 
+        mesh::{
             Mesh, 
             OsmiumVertex
-        }, scene::Scene
-    }, window::window_manager::WindowManager 
+        }, 
+        scene::Scene
+    }, 
+    window::window_manager::WindowManager 
 };
 
 pub struct OsmiumEngine {
@@ -24,7 +35,8 @@ pub struct OsmiumEngine {
     pub renderer: Renderer,
     pub window_manager: WindowManager,
     pub assets: AssetManager,
-    pub event_loop: EventLoop<()>
+    pub coordinator: Coordinator,
+    pub event_loop: EventLoop<()>,
 }
 
 impl OsmiumEngine {
@@ -35,6 +47,35 @@ impl OsmiumEngine {
         let event_loop = EventLoop::new();
 
         let (scene, mut assets) = Self::create_basic_scene();
+
+        let mut coordinator = Coordinator::new();
+        coordinator.register_component::<Transform>();
+        coordinator.register_component::<Gravity>();
+        coordinator.register_component::<RigidBody>();
+
+        let _physics_system = coordinator.register_system::<PhysicsSystem>();
+
+        let mut signature = Signature::new();
+        signature.set(
+            coordinator.get_component_type::<Transform>() as usize, 
+            true
+        );
+        signature.set(
+            coordinator.get_component_type::<Gravity>() as usize, 
+            true
+        );
+        signature.set(
+            coordinator.get_component_type::<RigidBody>() as usize, 
+            true
+        );
+
+        coordinator.set_system_signature::<PhysicsSystem>(signature);
+
+        let entity = coordinator.create_entity();
+        coordinator.add_component(entity, Transform::new());
+        coordinator.add_component(entity, Gravity::new());
+        coordinator.add_component(entity, RigidBody::new());
+
         
         let mut window_manager = WindowManager::init(&config.window_config, &event_loop);
 
@@ -50,7 +91,8 @@ impl OsmiumEngine {
             renderer,
             window_manager,
             assets,
-            event_loop
+            coordinator,
+            event_loop,
         }
     }
 
@@ -97,11 +139,12 @@ impl OsmiumEngine {
         let mut assets = self.assets;
         let event_loop = self.event_loop;
         let config = self.config;
+        let mut coordinator = self.coordinator;
 
         let target_frame_time = Duration::from_secs_f64(1.0 / config.target_fps as f64);
         let mut last_frame = Instant::now();
-        // let mut frame_count = 0;
-        // let mut fps_timer = Instant::now();
+        let mut frame_count = 0;
+        let mut fps_timer = Instant::now();
 
         event_loop.run(move |event, _, control_flow| {
             *control_flow = ControlFlow::Poll;
@@ -129,12 +172,12 @@ impl OsmiumEngine {
                     let now = Instant::now();
 
                     
-                    // frame_count += 1;
-                    // if now - fps_timer >= std::time::Duration::from_secs(1) {
-                    //     println!("FPS: {}", frame_count);
-                    //     frame_count = 0;
-                    //     fps_timer = now;
-                    // }
+                    frame_count += 1;
+                    if now - fps_timer >= std::time::Duration::from_secs(1) {
+                        println!("FPS: {}", frame_count);
+                        frame_count = 0;
+                        fps_timer = now;
+                    }
 
                     if now - last_frame >= target_frame_time {
                         last_frame = now;
@@ -143,6 +186,11 @@ impl OsmiumEngine {
                 }
 
                 Event::RedrawRequested(_) => {
+                    let dt = target_frame_time.as_secs_f32();
+
+                    coordinator
+                        .update_systems(dt);
+
                     renderer.render(
                         &window_manager,
                         &mut assets

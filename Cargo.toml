@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+nalgebra = "*"
 vulkano = "0.34.0"
 shaderc = "0.10"
 winit = "0.28.0"
