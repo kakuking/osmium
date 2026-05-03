@@ -9,7 +9,7 @@ fn default_roughness() -> f32 {
     0.5
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct MaterialParams {
     #[serde(default="default_base_color")]
     pub base_color: [f32; 4],
@@ -19,7 +19,7 @@ pub struct MaterialParams {
     pub metallic: f32,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct MaterialTextures {
     pub albedo: Option<String>,
     pub normal: Option<String>,
@@ -27,7 +27,7 @@ pub struct MaterialTextures {
     pub metallic: Option<String>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct MaterialConfig {
     pub name: String,
     pub vertex_shader: String,

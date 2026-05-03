@@ -15,6 +15,6 @@ Now approahcing new horizons and feeling my way through it
 - [x] Added Material Configuration
 - [x] Added Materials with Textures
 - [x] Added Asset manager partially
-- [ ] Add Shaders and textures to asset manager 
+- [x] Add Shaders and textures to asset manager
 - [ ] Add ECS
 - [ ] and then ...

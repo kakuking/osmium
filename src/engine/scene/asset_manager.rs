@@ -1,8 +1,99 @@
-use std::{collections::HashMap, marker::PhantomData, path::PathBuf, sync::Arc};
+use std::{
+    collections::HashMap, 
+    marker::PhantomData, 
+    path::PathBuf, 
+    sync::Arc
+};
 
-use vulkano::{command_buffer::allocator::StandardCommandBufferAllocator, device::Queue, memory::allocator::MemoryAllocator};
+use shaderc::ShaderKind;
+use vulkano::{
+    command_buffer::allocator::StandardCommandBufferAllocator, 
+    device::Queue, 
+    memory::allocator::MemoryAllocator, shader::ShaderModule
+};
 
-use crate::engine::{config::material::MaterialConfig, renderer::{buffer_manager::BufferManager, image_manager::ImageManager, shader_manager::ShaderManager}, scene::{material::Material, mesh::Mesh}};
+use crate::engine::{
+    config::material::MaterialConfig, 
+    renderer::{
+        buffer_manager::BufferManager, 
+        image_manager::{ImageManager, Texture}, 
+        shader_manager::ShaderManager
+    }, scene::{
+        material::{Material, MaterialAssets}, 
+        mesh::Mesh
+    }
+};
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct ShaderKey {
+    pub path: PathBuf,
+    pub kind: ShaderKindKey,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum ShaderKindKey {
+    Vertex,
+    Fragment,
+}
+
+impl ShaderKindKey {
+    pub fn to_shaderc(&self) -> ShaderKind {
+        match self {
+            ShaderKindKey::Vertex => ShaderKind::Vertex,
+            ShaderKindKey::Fragment => ShaderKind::Fragment,
+        }
+    }
+}
+
+pub struct ShaderStorage {
+    assets: Vec<Arc<ShaderModule>>,
+    keys: HashMap<
+        ShaderKey, 
+        Handle<Arc<ShaderModule>>
+        >,
+}
+
+impl ShaderStorage {
+    pub fn new() -> Self {
+        Self {
+            assets: Vec::new(),
+            keys: HashMap::new(),
+        }
+    }
+
+    pub fn load(
+        &mut self,
+        path: impl Into<PathBuf>,
+        kind: ShaderKindKey,
+        shader_manager: &ShaderManager,
+    ) -> Handle<Arc<ShaderModule>> {
+        let key = ShaderKey {
+            path: path.into(),
+            kind,
+        };
+
+        if let Some(handle) = self.keys.get(&key) {
+            return *handle;
+        }
+
+        let shader = unsafe {
+            shader_manager.create_shader(
+                key.path.to_str().unwrap(),
+                key.kind.to_shaderc(),
+            )
+        };
+
+        let handle = Handle::new(self.assets.len());
+        self.assets.push(shader);
+        self.keys.insert(key, handle);
+
+        handle
+    }
+
+    pub fn get(&self, handle: Handle<Arc<ShaderModule>>) -> Arc<ShaderModule> {
+        self.assets[handle.id()].clone()
+    }
+}
 
 #[derive(Debug, PartialEq, Eq, Hash)]
 pub struct Handle<T> {
@@ -80,6 +171,9 @@ impl<T> AssetStorage<T> {
 pub struct AssetManager {
     pub meshes: AssetStorage<Mesh>,
     pub materials: AssetStorage<Material>,
+    pub textures: AssetStorage<Arc<Texture>>,
+    pub shaders: ShaderStorage,
+
     pub material_configs: Vec<MaterialConfig>
 }
 
@@ -88,7 +182,10 @@ impl AssetManager {
         Self {
             meshes: AssetStorage::new(),
             materials: AssetStorage::new(),
-            material_configs: Vec::new()
+            textures: AssetStorage::new(),
+            shaders: ShaderStorage::new(),
+
+            material_configs: Vec::new(),
         }
     }
 
@@ -98,6 +195,37 @@ impl AssetManager {
 
     pub fn add_material(&mut self, asset: Material) -> Handle<Material> {
         self.materials.add(asset)
+    }
+
+    pub fn load_texture(
+        &mut self,
+        path: impl Into<PathBuf>,
+        image_manager: &ImageManager,
+        command_buffer_allocator: &StandardCommandBufferAllocator,
+        queue: Arc<Queue>,
+    ) -> Handle<Arc<Texture>> {
+        let path = path.into();
+
+        if let Some(handle) = self.textures.paths.get(&path) {
+            return *handle;
+        }
+
+        let texture = image_manager.load_texture(
+            path.to_str().unwrap(),
+            command_buffer_allocator,
+            queue,
+        );
+
+        self.textures.add_with_path(path, texture)
+    }
+
+    pub fn load_shader(
+        &mut self,
+        path: impl Into<PathBuf>,
+        kind: ShaderKindKey,
+        shader_manager: &ShaderManager,
+    ) -> Handle<Arc<ShaderModule>> {
+        self.shaders.load(path, kind, shader_manager)
     }
 
     pub fn add_material_config(&mut self, asset: MaterialConfig) -> Handle<Material> {
@@ -115,22 +243,76 @@ impl AssetManager {
         queue: Arc<Queue>,
         memory_allocator: Arc<dyn MemoryAllocator>,
     ) {
-        if self.material_configs.len() == self.materials.len() {
-            return;
-        }
+        let start = self.materials.len();
 
-        for config in &self.material_configs {
-            self.materials.add(
-                Material::init(
-                    config,
+        let configs: Vec<MaterialConfig> = self
+            .material_configs
+            .iter()
+            .skip(start)
+            .cloned()
+            .collect();
+
+        for config in configs {
+            let material_assets = MaterialAssets {
+                vertex_shader: self.load_shader(
+                    &config.vertex_shader,
+                    ShaderKindKey::Vertex,
                     shader_manager,
-                    image_manager,
-                    buffer_manager,
-                    command_buffer_allocator,
-                    queue.clone(),
-                    memory_allocator.clone(),
-                )
+                ),
+
+                fragment_shader: self.load_shader(
+                    &config.fragment_shader,
+                    ShaderKindKey::Fragment,
+                    shader_manager,
+                ),
+
+                albedo_texture: config.textures.albedo.as_ref().map(|path| {
+                    self.load_texture(
+                        path,
+                        image_manager,
+                        command_buffer_allocator,
+                        queue.clone(),
+                    )
+                }),
+
+                normal_texture: config.textures.normal.as_ref().map(|path| {
+                    self.load_texture(
+                        path,
+                        image_manager,
+                        command_buffer_allocator,
+                        queue.clone(),
+                    )
+                }),
+
+                roughness_texture: config.textures.roughness.as_ref().map(|path| {
+                    self.load_texture(
+                        path,
+                        image_manager,
+                        command_buffer_allocator,
+                        queue.clone(),
+                    )
+                }),
+
+                metallic_texture: config.textures.metallic.as_ref().map(|path| {
+                    self.load_texture(
+                        path,
+                        image_manager,
+                        command_buffer_allocator,
+                        queue.clone(),
+                    )
+                }),
+            };
+
+            let material = Material::init(
+                &config,
+                material_assets,
+                buffer_manager,
+                command_buffer_allocator,
+                queue.clone(),
+                memory_allocator.clone(),
             );
+
+            self.materials.add(material);
         }
     }
 }

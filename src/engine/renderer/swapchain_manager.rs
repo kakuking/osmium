@@ -8,6 +8,7 @@ use vulkano::{
         FramebufferCreateInfo, 
         RenderPass
     }, swapchain::{
+        // PresentMode, 
         Swapchain, 
         SwapchainCreateInfo
     }
@@ -67,6 +68,7 @@ impl SwapchainManager {
                 image_extent: dims.into(),
                 image_usage: ImageUsage::COLOR_ATTACHMENT | ImageUsage::TRANSFER_DST,
                 composite_alpha,
+                // present_mode: PresentMode::Fifo,
                 ..Default::default()
             },
         )

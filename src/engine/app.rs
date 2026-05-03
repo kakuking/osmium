@@ -1,3 +1,5 @@
+use std::time::{Duration, Instant};
+
 use winit::{
     event::{Event, WindowEvent}, 
     event_loop::{ControlFlow, EventLoop}
@@ -18,6 +20,7 @@ use crate::engine::{
 };
 
 pub struct OsmiumEngine {
+    pub config: RendererConfig,
     pub renderer: Renderer,
     pub window_manager: WindowManager,
     pub assets: AssetManager,
@@ -27,7 +30,7 @@ pub struct OsmiumEngine {
 impl OsmiumEngine {
     pub fn init() -> Self {
         let mut config = RendererConfig::new();
-        config.render_pass.samples = 1;
+        config.render_pass.samples = 2;
 
         let event_loop = EventLoop::new();
 
@@ -37,12 +40,13 @@ impl OsmiumEngine {
 
         let renderer = Renderer::init(
             &mut window_manager,
-            config,
+            &config,
             scene, 
             &mut assets
         );
 
         Self {
+            config,
             renderer,
             window_manager,
             assets,
@@ -78,7 +82,9 @@ impl OsmiumEngine {
         // scene.meshes.push(mesh2);
 
         let material_handle = asset_manager.add_material_config(material_config); //.material_configs.push(material_config);
-
+        let material2_config = MaterialConfig::new();
+        let _ = asset_manager.add_material_config(material2_config); //.material_configs.push(material_config);
+        
         scene.add_object(mesh_handle, material_handle);
         scene.add_object(mesh2_handle, material_handle);
 
@@ -90,8 +96,16 @@ impl OsmiumEngine {
         let window_manager = self.window_manager;
         let mut assets = self.assets;
         let event_loop = self.event_loop;
+        let config = self.config;
+
+        let target_frame_time = Duration::from_secs_f64(1.0 / config.target_fps as f64);
+        let mut last_frame = Instant::now();
+        // let mut frame_count = 0;
+        // let mut fps_timer = Instant::now();
 
         event_loop.run(move |event, _, control_flow| {
+            *control_flow = ControlFlow::Poll;
+
             match event {
                 Event::WindowEvent {
                     event: WindowEvent::CloseRequested,
@@ -112,11 +126,27 @@ impl OsmiumEngine {
                 }
 
                 Event::MainEventsCleared => {
+                    let now = Instant::now();
+
+                    
+                    // frame_count += 1;
+                    // if now - fps_timer >= std::time::Duration::from_secs(1) {
+                    //     println!("FPS: {}", frame_count);
+                    //     frame_count = 0;
+                    //     fps_timer = now;
+                    // }
+
+                    if now - last_frame >= target_frame_time {
+                        last_frame = now;
+                        window_manager.get_window().request_redraw();
+                    }
+                }
+
+                Event::RedrawRequested(_) => {
                     renderer.render(
                         &window_manager,
                         &mut assets
                     );
-                    // window_manager.set_visibility(true);
                 }
 
                 _ => {}

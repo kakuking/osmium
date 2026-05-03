@@ -1,6 +1,5 @@
 use std::sync::Arc;
 
-use shaderc::ShaderKind;
 use vulkano::{
     buffer::{
         BufferContents, 
@@ -21,7 +20,7 @@ use vulkano::{
         graphics::viewport::Viewport
     }, 
     render_pass::RenderPass, 
-    shader::ShaderModule
+    shader::{ShaderModule}
 };
 
 use crate::engine::{
@@ -30,12 +29,17 @@ use crate::engine::{
         descriptor_manager::DescriptorManager, 
         image_manager::{
             DefaultTextures, 
-            ImageManager, 
             Texture
         }, 
         pipeline_constructor::PipelineConstructor, 
-        shader_manager::ShaderManager
-    }, scene::mesh::OsmiumVertex
+    }, scene::{
+        asset_manager::{
+            AssetStorage, 
+            Handle, 
+            ShaderStorage
+        }, 
+        mesh::OsmiumVertex
+    }
 };
 
 #[derive(Debug, Clone, Copy, BufferContents)]
@@ -55,19 +59,29 @@ pub struct MaterialUniform {
     pub texture_flags: [u32; 4],
 }
 
+pub struct MaterialAssets {
+    pub vertex_shader: Handle<Arc<ShaderModule>>,
+    pub fragment_shader: Handle<Arc<ShaderModule>>,
+
+    pub albedo_texture: Option<Handle<Arc<Texture>>>,
+    pub normal_texture: Option<Handle<Arc<Texture>>>,
+    pub roughness_texture: Option<Handle<Arc<Texture>>>,
+    pub metallic_texture: Option<Handle<Arc<Texture>>>,
+}
+
 #[derive(Clone)]
 pub struct Material {
-    vertex_shader: Arc<ShaderModule>,
-    fragment_shader: Arc<ShaderModule>,
+    vertex_shader: Handle<Arc<ShaderModule>>,
+    fragment_shader: Handle<Arc<ShaderModule>>,
 
     pub name: String,
     pub uniform: MaterialUniform,
     uniform_buffer: Subbuffer<MaterialUniform>,
 
-    albedo_texture: Option<Arc<Texture>>,
-    normal_texture: Option<Arc<Texture>>,
-    roughness_texture: Option<Arc<Texture>>,
-    metallic_texture: Option<Arc<Texture>>,
+    albedo_texture: Option<Handle<Arc<Texture>>>,
+    normal_texture: Option<Handle<Arc<Texture>>>,
+    roughness_texture: Option<Handle<Arc<Texture>>>,
+    metallic_texture: Option<Handle<Arc<Texture>>>,
 
     pipeline: Option<Arc<GraphicsPipeline>>,
     descriptor_set: Option<Arc<PersistentDescriptorSet>>,
@@ -78,72 +92,12 @@ pub struct Material {
 impl Material {
     pub fn init(
         config: &MaterialConfig,
-        shader_manager: &ShaderManager,
-        image_manager: &ImageManager,
+        material_assets: MaterialAssets,
         buffer_manager: &BufferManager,
         command_buffer_allocator: &StandardCommandBufferAllocator,
         queue: Arc<Queue>,
         memory_allocator: Arc<dyn MemoryAllocator>,
     ) -> Self {
-        let vertex_shader: Arc<ShaderModule> = unsafe {
-            shader_manager.create_shader(
-                &config.vertex_shader,
-                ShaderKind::Vertex,
-            )
-        };
-        let fragment_shader: Arc<ShaderModule> = unsafe {
-            shader_manager.create_shader(
-                &config.fragment_shader,
-                ShaderKind::Fragment,
-            )
-        };
-
-        let albedo_texture = config.textures.albedo
-            .as_ref()
-            .map(|path| 
-                image_manager.load_texture(
-                    path, 
-                    command_buffer_allocator, 
-                    queue.clone()
-                )
-            );
-
-        let normal_texture = config.textures.normal
-            .as_ref()
-            .map(|path| 
-                image_manager.load_texture(
-                    path, 
-                    command_buffer_allocator, 
-                    queue.clone()
-                )
-            );
-
-        let roughness_texture = config.textures.roughness
-            .as_ref()
-            .map(|path| 
-                image_manager.load_texture(
-                    path, 
-                    command_buffer_allocator, 
-                    queue.clone()
-                )
-            );
-
-        let metallic_texture = config.textures.metallic
-            .as_ref()
-            .map(|path| 
-                image_manager.load_texture(
-                    path, 
-                    command_buffer_allocator, 
-                    queue.clone()
-                )
-            );
-
-        let default_textures = DefaultTextures::new(
-            memory_allocator.clone(),
-            command_buffer_allocator,
-            queue
-        );
-
         let uniform = MaterialUniform {
             base_color: config.params.base_color,
 
@@ -155,45 +109,49 @@ impl Material {
             ],
 
             texture_flags: [
-                albedo_texture.is_some() as u32,
-                normal_texture.is_some() as u32,
-                roughness_texture.is_some() as u32,
-                metallic_texture.is_some() as u32,
+                material_assets.albedo_texture.is_some() as u32,
+                material_assets.normal_texture.is_some() as u32,
+                material_assets.roughness_texture.is_some() as u32,
+                material_assets.metallic_texture.is_some() as u32,
             ],
         };
 
         let uniform_buffer = buffer_manager.create_buffer_from_data(
-            uniform.clone(), 
-            Some(BufferUsage::UNIFORM_BUFFER), 
-            Some(
-                // MemoryTypeFilter::PREFER_DEVICE |
-                MemoryTypeFilter::HOST_SEQUENTIAL_WRITE
-            )
+            uniform,
+            Some(BufferUsage::UNIFORM_BUFFER),
+            Some(MemoryTypeFilter::HOST_SEQUENTIAL_WRITE),
+        );
+
+        let default_textures = DefaultTextures::new(
+            memory_allocator,
+            command_buffer_allocator,
+            queue,
         );
 
         Self {
             name: config.name.clone(),
 
-            vertex_shader, 
-            fragment_shader,
+            vertex_shader: material_assets.vertex_shader,
+            fragment_shader: material_assets.fragment_shader,
 
-            uniform: uniform,
-            uniform_buffer: uniform_buffer,
+            uniform,
+            uniform_buffer,
 
-            albedo_texture,
-            normal_texture,
-            roughness_texture,
-            metallic_texture,
+            albedo_texture: material_assets.albedo_texture,
+            normal_texture: material_assets.normal_texture,
+            roughness_texture: material_assets.roughness_texture,
+            metallic_texture: material_assets.metallic_texture,
 
             pipeline: None,
             descriptor_set: None,
 
-            default_textures
+            default_textures,
         }
     }
 
     pub fn recreate_descriptor_set(
         &mut self,
+        textures: &AssetStorage<Arc<Texture>>,
         descriptor_manager: &DescriptorManager,
     ) {
         let pipeline = self.get_pipeline();
@@ -207,20 +165,20 @@ impl Material {
         );
 
         let albedo = self.albedo_texture
-            .as_ref()
-            .unwrap_or(&self.default_textures.white);
+            .map(|handle| textures.get(handle).clone())
+            .unwrap_or(self.default_textures.white.clone());
 
         let normal = self.normal_texture
-            .as_ref()
-            .unwrap_or(&self.default_textures.flat_normal);
+            .map(|handle| textures.get(handle).clone())
+            .unwrap_or(self.default_textures.flat_normal.clone());
 
         let roughness = self.roughness_texture
-            .as_ref()
-            .unwrap_or(&self.default_textures.gray);
+            .map(|handle| textures.get(handle).clone())
+            .unwrap_or(self.default_textures.gray.clone());
 
         let metallic = self.metallic_texture
-            .as_ref()
-            .unwrap_or(&self.default_textures.black);
+            .map(|handle| textures.get(handle).clone())
+            .unwrap_or(self.default_textures.black.clone());
 
         descriptor_manager.add_image_view_sampler(
             &mut writes,
@@ -266,11 +224,16 @@ impl Material {
         viewport: Viewport,
         samples: SampleCount,
         enable_depth: bool,
+        shaders: &ShaderStorage,
+        textures: &AssetStorage<Arc<Texture>>,
         descriptor_manager: &DescriptorManager,
     ) {
+        let vs = shaders.get(self.vertex_shader.clone());
+        let fs = shaders.get(self.fragment_shader.clone());
+
         let pipeline = PipelineConstructor::get_pipeline::<OsmiumVertex>(
             device, 
-            self.vertex_shader.clone(), self.fragment_shader.clone(), 
+            vs, fs, 
             render_pass, 
             viewport, 
             samples, 
@@ -280,6 +243,7 @@ impl Material {
         self.pipeline = Some(pipeline);
 
         self.recreate_descriptor_set(
+            textures,
             descriptor_manager,
         );
     }

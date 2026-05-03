@@ -98,7 +98,7 @@ pub struct Renderer {
 impl Renderer {
     pub fn init(
         window_manager: &mut WindowManager,
-        config: RendererConfig,
+        config: &RendererConfig,
         scene: Scene,
         assets: &mut AssetManager,
     ) -> Renderer
@@ -171,13 +171,19 @@ impl Renderer {
             vulkan_context.memory_allocator.clone()
         );
 
-        for material in assets.materials.iter_mut() {
+        let shaders = &assets.shaders;
+        let textures = &assets.textures;
+        let materials = &mut assets.materials;
+
+        for material in materials.iter_mut() {
             material.recreate_pipeline(
                 vulkan_context.get_device(),
                 render_pass.clone(),
                 swapchain_manager.get_viewport().clone(),
                 swapchain_manager.get_samples(),
                 config.enable_depth,
+                shaders,
+                textures,
                 &descriptor_manager
             );
         }
@@ -232,6 +238,9 @@ impl Renderer {
 
         self.frame_state.clear_swapchain_recreate();
 
+        let shaders = &assets.shaders;
+        let textures = &assets.textures;
+
         for material in assets.materials.iter_mut() {
             material.recreate_pipeline(
                 self.vulkan_context.get_device(), 
@@ -239,6 +248,8 @@ impl Renderer {
                 self.swapchain_manager.get_viewport().clone(), 
                 self.swapchain_manager.get_samples(), 
                 self.swapchain_manager.enable_depth(),
+                shaders,
+                textures,
                 &self.descriptor_manager
             );
         }
