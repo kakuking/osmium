@@ -32,7 +32,7 @@ use vulkano::{
 };
 
 use crate::engine::{
-    config::config::RendererConfig, ecs::components::renderable::ObjectPushConstants, renderer::{
+    config::renderer_config::RendererConfig, ecs::components::renderable::ObjectPushConstants, renderer::{
         buffer_manager::BufferManager, 
         descriptor_manager::DescriptorManager, 
         image_manager::ImageManager, 

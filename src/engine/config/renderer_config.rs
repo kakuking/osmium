@@ -3,7 +3,7 @@ use vulkano::{
     device::physical::PhysicalDeviceType, 
 };
 
-use crate::engine::config::window::WindowConfig;
+use crate::engine::config::window_config::WindowConfig;
 
 #[derive(Debug, Clone, Default, Deserialize)]
 #[serde(default)]

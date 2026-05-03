@@ -24,7 +24,7 @@ use vulkano::{
 };
 
 use crate::engine::{
-    config::material::MaterialConfig, renderer::{
+    config::material_config::MaterialConfig, renderer::{
         buffer_manager::BufferManager, 
         descriptor_manager::DescriptorManager, 
         image_manager::{

@@ -26,7 +26,7 @@ use vulkano::{
 };
 
 use crate::engine::{
-    config::config::RendererConfig, 
+    config::renderer_config::RendererConfig, 
     window::window_manager::WindowManager
 };
 

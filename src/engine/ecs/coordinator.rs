@@ -11,19 +11,25 @@ use crate::engine::{
         system_manager::SystemManager, 
         systems::render::RenderSystem
     }, 
-    scene::render_item::RenderItem
+    scene::render_item::RenderItem, 
+    window::event_manager::{
+        EngineEvent, 
+        EventManager
+    }
 };
 
 pub struct WorldCoordinator {
     component_manager: ComponentManager,
     entity_manager: EntityManager,
+    events: EventManager,
 }
 
 impl WorldCoordinator {
     pub fn new() -> Self {
         Self {
             component_manager: ComponentManager::new(),
-            entity_manager: EntityManager::new()
+            entity_manager: EntityManager::new(),
+            events: EventManager::default()
         }
     }
 }
@@ -39,6 +45,22 @@ impl WorldCoordinator {
 
     pub fn get_component_type<T: 'static>(&self) -> ComponentType {
         self.component_manager.get_component_type::<T>()
+    }
+
+    pub fn events(&self) -> &EventManager {
+        &self.events
+    }
+
+    pub fn events_mut(&mut self) -> &mut EventManager {
+        &mut self.events
+    }
+
+    pub fn send_event(&mut self, event: EngineEvent) {
+        self.events.send(event);
+    }
+
+    pub fn clear_frame_events(&mut self) {
+        self.events.clear_frame_events();
     }
 }
 
@@ -129,6 +151,21 @@ impl Coordinator {
         );
     }
 
+    pub fn events(&self) -> &EventManager {
+        self.world_coordinator.events()
+    }
+
+    pub fn events_mut(&mut self) -> &mut EventManager {
+        self.world_coordinator.events_mut()
+    }
+
+    pub fn send_event(&mut self, event: EngineEvent) {
+        self.world_coordinator.send_event(event);
+    }
+
+    pub fn clear_frame_events(&mut self) {
+        self.world_coordinator.clear_frame_events();
+    }
 
     pub fn get_render_items(&self) -> Vec<RenderItem> {
         let render_system = self.get_system::<RenderSystem>();

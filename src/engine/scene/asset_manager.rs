@@ -13,7 +13,7 @@ use vulkano::{
 };
 
 use crate::engine::{
-    config::material::MaterialConfig, 
+    config::material_config::MaterialConfig, 
     renderer::{
         buffer_manager::BufferManager, 
         image_manager::{ImageManager, Texture}, 

@@ -18,7 +18,7 @@ use winit::{
     }
 };
 
-use crate::engine::config::window::WindowConfig;
+use crate::engine::config::window_config::WindowConfig;
 
 pub struct WindowManager {
     window: Arc<Window>,

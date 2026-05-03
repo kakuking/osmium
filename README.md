@@ -19,6 +19,7 @@ Now approahcing new horizons and feeling my way through it
 - [x] Added FPS limiter
 - [x] Add ECS
 - [x] Added Transforms as push constants
+- [x] Added input/event manager
 - [ ] Add Render Graph \*\*\*\*\*\*
 - [ ] and then ...
 

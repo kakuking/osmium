@@ -19,7 +19,7 @@ use crate::engine::{
         image_manager::ImageManager, vulkan_context::VulkanContext
     },
     config::{
-        config::RendererConfig
+        renderer_config::RendererConfig
     }, 
     window::window_manager::WindowManager
 };

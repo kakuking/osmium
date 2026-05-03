@@ -1,14 +1,13 @@
 use std::time::{Duration, Instant};
 
 use winit::{
-    event::{Event, WindowEvent}, 
-    event_loop::{ControlFlow, EventLoop}
+    event::{ElementState, Event, KeyboardInput, WindowEvent}, 
+    event_loop::{ControlFlow, EventLoop},
 };
 
 use crate::engine::{
     config::{
-        config::RendererConfig, 
-        material::MaterialConfig
+        material_config::MaterialConfig, renderer_config::RendererConfig
     }, ecs::{
         components::{
             gravity::Gravity, renderable::MeshRenderable, rigid_body::RigidBody, transform::Transform
@@ -24,7 +23,7 @@ use crate::engine::{
             OsmiumVertex
         }, 
     }, 
-    window::window_manager::WindowManager 
+    window::{event_manager::EngineEvent, window_manager::WindowManager} 
 };
 
 pub struct OsmiumEngine {
@@ -160,18 +159,61 @@ impl OsmiumEngine {
             *control_flow = ControlFlow::Poll;
 
             match event {
-                Event::WindowEvent {
-                    event: WindowEvent::CloseRequested,
-                    ..
-                } => {
-                    *control_flow = ControlFlow::Exit;
-                }
+                Event::WindowEvent { event, .. } => {
+                    match event {
+                        WindowEvent::CloseRequested => {
+                            *control_flow = ControlFlow::Exit;
+                        }
 
-                Event::WindowEvent {
-                    event: WindowEvent::Resized(size),
-                    ..
-                } => {
-                    renderer.resize(size.width, size.height);
+                        WindowEvent::Resized(size) => {
+                            renderer.resize(size.width, size.height);
+
+                            coordinator.send_event(EngineEvent::WindowResized {
+                                width: size.width,
+                                height: size.height,
+                            });
+                        }
+
+                        WindowEvent::KeyboardInput {
+                            input:
+                                KeyboardInput {
+                                    virtual_keycode: Some(key),
+                                    state,
+                                    ..
+                                },
+                            ..
+                        } => {
+                            match state {
+                                ElementState::Pressed => {
+                                    coordinator.send_event(EngineEvent::KeyPressed(key));
+                                }
+
+                                ElementState::Released => {
+                                    coordinator.send_event(EngineEvent::KeyReleased(key));
+                                }
+                            }
+                        }
+
+                        WindowEvent::MouseInput { state, button, .. } => {
+                            match state {
+                                ElementState::Pressed => {
+                                    coordinator.send_event(EngineEvent::MousePressed(button));
+                                }
+                                ElementState::Released => {
+                                    coordinator.send_event(EngineEvent::MouseReleased(button));
+                                }
+                            }
+                        }
+
+                        WindowEvent::CursorMoved { position, .. } => {
+                            coordinator.send_event(EngineEvent::MouseMoved {
+                                x: position.x,
+                                y: position.y,
+                            });
+                        }
+
+                        _ => {}
+                    }
                 }
 
                 Event::LoopDestroyed => {
@@ -211,6 +253,8 @@ impl OsmiumEngine {
                         &mut assets,
                         &coordinator.get_render_items()
                     );
+
+                    coordinator.clear_frame_events();
                 }
 
                 _ => {}

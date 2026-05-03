@@ -6,7 +6,7 @@ use vulkano::{
     render_pass::RenderPass
 };
 
-use crate::engine::config::config::RendererConfig;
+use crate::engine::config::renderer_config::RendererConfig;
 
 pub struct RenderPassConstructor {
 
