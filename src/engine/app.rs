@@ -132,15 +132,23 @@ impl OsmiumEngine {
             OsmiumVertex { position: [ 0.8, 0.5, 0.0], uv: [1.0, 1.0] },
         ];
 
+        let floor_triangles = vec![
+            OsmiumVertex { position: [-0.8, -0.05, 0.0], uv: [0.0, 0.0] },
+            OsmiumVertex { position: [ 0.8, -0.05, 0.0], uv: [1.0, 0.0] },
+            OsmiumVertex { position: [ 0.0,  0.15, 0.0], uv: [0.5, 1.0] },
+        ];
+        
         let mesh = Mesh::init(triangles, None);
         let material_config = MaterialConfig::new();
         let mesh2 = Mesh::init(triangles2, None);
+        let floor_mesh = Mesh::init(floor_triangles, None);
 
         let mut asset_manager = AssetManager::new();
 
         let mesh_handle = asset_manager.add_mesh(mesh);
         let mesh2_handle = asset_manager.add_mesh(mesh2);
         let material_handle = asset_manager.add_material_config(material_config);
+        let floor_mesh_handle = asset_manager.add_mesh(floor_mesh);
 
         let entity = coordinator.create_entity();
 
@@ -155,6 +163,21 @@ impl OsmiumEngine {
         coordinator.add_component(entity2, MeshRenderable::new(mesh2_handle, material_handle));
         coordinator.add_component(entity2, Transform::new());
         coordinator.add_component(entity2, PhysicsBodyConfig::dynamic_box([0.5, 0.5, 0.5]));
+        
+        let floor_entity = coordinator.create_entity();
+        let mut floor_transform = Transform::new();
+        floor_transform.position.y = -1.0; // visually below if your renderer Y is flipped
+
+        coordinator.add_component(
+            floor_entity,
+            MeshRenderable::new(floor_mesh_handle, material_handle),
+        );
+
+        coordinator.add_component(floor_entity, floor_transform);
+        coordinator.add_component(
+            floor_entity,
+            PhysicsBodyConfig::fixed_box([0.8, 0.05, 0.5]),
+        );
 
         asset_manager
     }

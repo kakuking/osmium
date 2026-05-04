@@ -55,9 +55,9 @@ impl SystemTrait for UserControllerSystem {
             };
 
             let y = if coordinator.events().key_pressed(VirtualKeyCode::Down) {
-                1.0
+                -1.0
             } else if coordinator.events().key_pressed(VirtualKeyCode::Up) { 
-                -1.0 
+                1.0 
             } else {
                 0.0
             };

@@ -2,13 +2,21 @@ use std::sync::Arc;
 
 use vulkano::{
     format::Format, image::{
-        Image, ImageCreateInfo, ImageType, ImageUsage, SampleCount
-    }, memory::allocator::{AllocationCreateInfo, MemoryTypeFilter}, pipeline::graphics::viewport::Viewport, render_pass::{
+        Image, 
+        ImageCreateInfo, 
+        ImageType, 
+        ImageUsage, 
+        SampleCount
+    }, memory::allocator::{
+        AllocationCreateInfo, 
+        MemoryTypeFilter
+    }, 
+    pipeline::graphics::viewport::Viewport, 
+    render_pass::{
         Framebuffer, 
         FramebufferCreateInfo, 
         RenderPass
     }, swapchain::{
-        // PresentMode, 
         Swapchain, 
         SwapchainCreateInfo
     }
