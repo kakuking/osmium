@@ -21,7 +21,7 @@ Now approahcing new horizons and feeling my way through it
 - [x] Added Transforms as push constants
 - [x] Added input/event manager
 - [x] Added User Controller
-- [ ] Add Physics Simulation (Rapier)
+- [x] Add Physics Simulation using Rapier, 3D only
 - [ ] Add Render Graph \*\*\*\*\*\*
 - [ ] and then ...
 

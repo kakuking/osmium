@@ -10,10 +10,17 @@ use crate::engine::{
         material_config::MaterialConfig, renderer_config::RendererConfig
     }, ecs::{
         components::{
-            gravity::Gravity, movement_speeds::MovementSpeeds, renderable::MeshRenderable, rigid_body::RigidBody, transform::Transform
+            movement_speeds::MovementSpeeds, 
+            physics::{PhysicsBody, PhysicsBodyConfig, PhysicsCollider}, 
+            renderable::MeshRenderable, 
+            transform::Transform
         }, coordinator::Coordinator, 
         signature::Signature, 
-        systems::{physics::PhysicsSystem, render::RenderSystem, user_controller::UserControllerSystem}
+        systems::{
+            physics::PhysicsSystem, 
+            render::RenderSystem, 
+            user_controller::UserControllerSystem
+        }
     }, 
     renderer::renderer::Renderer, 
     scene::{
@@ -47,8 +54,9 @@ impl OsmiumEngine {
         coordinator.register_component::<MeshRenderable>();
         coordinator.register_component::<MovementSpeeds>();
         coordinator.register_component::<Transform>();
-        coordinator.register_component::<Gravity>();
-        coordinator.register_component::<RigidBody>();
+        coordinator.register_component::<PhysicsBodyConfig>();
+        coordinator.register_component::<PhysicsBody>();
+        coordinator.register_component::<PhysicsCollider>();
 
         let _physics_system = coordinator.register_system::<PhysicsSystem>();
         let _render_system = coordinator.register_system::<RenderSystem>();
@@ -60,11 +68,7 @@ impl OsmiumEngine {
             true
         );
         physics_signature.set(
-            coordinator.get_component_type::<Gravity>() as usize, 
-            true
-        );
-        physics_signature.set(
-            coordinator.get_component_type::<RigidBody>() as usize, 
+            coordinator.get_component_type::<PhysicsBodyConfig>() as usize, 
             true
         );
         coordinator.set_system_signature::<PhysicsSystem>(physics_signature);
@@ -92,6 +96,8 @@ impl OsmiumEngine {
         coordinator.set_system_signature::<UserControllerSystem>(uc_signature);
 
         let mut assets = Self::create_basic_scene(&mut coordinator);
+
+        coordinator.initialize_systems();
         
         let mut window_manager = WindowManager::init(&config.window_config, &event_loop);
 
@@ -148,8 +154,7 @@ impl OsmiumEngine {
 
         coordinator.add_component(entity2, MeshRenderable::new(mesh2_handle, material_handle));
         coordinator.add_component(entity2, Transform::new());
-        coordinator.add_component(entity2, Gravity::new());
-        coordinator.add_component(entity2, RigidBody::new());
+        coordinator.add_component(entity2, PhysicsBodyConfig::dynamic_box([0.5, 0.5, 0.5]));
 
         asset_manager
     }

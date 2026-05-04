@@ -73,6 +73,10 @@ impl<T> ComponentArray<T> {
         }
     }
 
+    pub fn has_data(&self, entity: Entity) -> bool {
+        self.entity_to_index_map.contains_key(&entity)
+    }
+
     pub fn get_data(&self, entity: Entity) -> &T {
         assert!(self.entity_to_index_map.contains_key(&entity), "Retrieving non-existent component");
 

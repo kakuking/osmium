@@ -5,7 +5,7 @@ use std::{
 
 use crate::engine::ecs::{
     Entity, 
-    coordinator::WorldCoordinator, 
+    world_coordinator::WorldCoordinator, 
     system::SystemTrait
 };
 

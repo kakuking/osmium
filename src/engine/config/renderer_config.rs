@@ -56,7 +56,9 @@ pub struct RendererConfig {
     pub render_pass: RenderPassConfig,
     pub window_config: WindowConfig,
     pub target_fps: u32,
-    pub print_fps: bool
+    pub print_fps: bool,
+
+    pub two_d_physics: bool
 }
 
 fn default_gpu_priority() -> Vec<GpuTypeConfig> {
@@ -78,6 +80,7 @@ impl Default for RendererConfig {
             window_config: WindowConfig::default(),
             target_fps: 60,
             print_fps: true,
+            two_d_physics: true
         }
     }
 }
@@ -99,6 +102,7 @@ impl RendererConfig {
             window_config: WindowConfig::new(),
             target_fps: 60,
             print_fps: true,
+            two_d_physics: true
         }
     }
 

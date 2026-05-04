@@ -4,3 +4,4 @@ pub mod renderer;
 pub mod scene;
 pub mod config;
 pub mod ecs;
+pub mod physics;

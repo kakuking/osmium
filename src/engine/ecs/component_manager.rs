@@ -88,6 +88,10 @@ impl ComponentManager {
         }
     }
 
+    pub fn has_component<T: 'static>(&self, entity: Entity) -> bool {
+        self.get_component_array::<T>().has_data(entity)
+    }
+
     fn get_component_array<T: 'static>(&self) -> &ComponentArray<T> {
         let type_name: String = type_name::<T>().to_string();
         

@@ -12,7 +12,7 @@ use crate::engine::ecs::{
         movement_speeds::MovementSpeeds, 
         transform::Transform
     }, 
-    coordinator::WorldCoordinator, 
+    world_coordinator::WorldCoordinator, 
     system::SystemTrait
 };
 

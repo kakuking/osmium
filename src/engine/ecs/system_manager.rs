@@ -2,9 +2,8 @@ use std::{any::type_name, collections::HashMap};
 
 use crate::engine::ecs::{
     Entity, 
-    coordinator::WorldCoordinator, 
     signature::Signature, 
-    system::SystemTrait
+    system::SystemTrait, world_coordinator::WorldCoordinator
 };
 
 pub struct SystemManager {
@@ -96,6 +95,15 @@ impl SystemManager {
             .as_any_mut()
             .downcast_mut::<T>()
             .expect("System type mismatch")
+    }
+
+    pub fn initialize_all_systems(
+        &mut self,
+        coordinator: &mut WorldCoordinator
+    ) {
+        for (_, system) in &mut self.systems {
+            system.initialize(coordinator);
+        }
     }
 
     pub fn update_all_systems(

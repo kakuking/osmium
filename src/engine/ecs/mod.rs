@@ -13,3 +13,4 @@ pub mod system_manager;
 pub mod coordinator;
 pub mod components;
 pub mod systems;
+pub mod world_coordinator;

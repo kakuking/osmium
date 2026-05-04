@@ -3,70 +3,19 @@ use crate::engine::{
     ecs::{
         ComponentType, 
         Entity, 
-        component_manager::ComponentManager, 
         components::{
             renderable::MeshRenderable, 
             transform::Transform
         }, 
-        entity_manager::EntityManager, 
         signature::Signature, 
         system::SystemTrait, 
         system_manager::SystemManager, 
-        systems::render::RenderSystem
-    }, 
-    scene::render_item::RenderItem, 
-    window::event_manager::{
+        systems::render::RenderSystem, world_coordinator::WorldCoordinator
+    }, scene::render_item::RenderItem, window::event_manager::{
         EngineEvent, 
         EventManager
     }
 };
-
-pub struct WorldCoordinator {
-    component_manager: ComponentManager,
-    entity_manager: EntityManager,
-    events: EventManager,
-}
-
-impl WorldCoordinator {
-    pub fn new() -> Self {
-        Self {
-            component_manager: ComponentManager::new(),
-            entity_manager: EntityManager::new(),
-            events: EventManager::default()
-        }
-    }
-}
-
-impl WorldCoordinator {
-    pub fn get_component<T: 'static>(&self, entity: Entity) -> &T {
-        self.component_manager.get_component::<T>(entity)
-    }
-
-    pub fn get_component_mut<T: 'static>(&mut self, entity: Entity) -> &mut T {
-        self.component_manager.get_component_mut::<T>(entity)
-    }
-
-    pub fn get_component_type<T: 'static>(&self) -> ComponentType {
-        self.component_manager.get_component_type::<T>()
-    }
-
-    pub fn events(&self) -> &EventManager {
-        &self.events
-    }
-
-    pub fn events_mut(&mut self) -> &mut EventManager {
-        &mut self.events
-    }
-
-    pub fn send_event(&mut self, event: EngineEvent) {
-        self.events.send(event);
-    }
-
-    pub fn clear_frame_events(&mut self) {
-        self.events.clear_frame_events();
-    }
-}
-
 
 pub struct Coordinator {
     world_coordinator: WorldCoordinator,
@@ -76,8 +25,6 @@ pub struct Coordinator {
 impl Coordinator {
     pub fn new() -> Self {
         Self {
-            // component_manager: ComponentManager::new(),
-            // entity_manager: EntityManager::new(),
             world_coordinator: WorldCoordinator::new(),
             system_manager: SystemManager::new()
         }
@@ -145,6 +92,12 @@ impl Coordinator {
 
     pub fn set_system_signature<T: 'static + SystemTrait + Default>(&mut self, signature: Signature) {
         self.system_manager.set_signature::<T>(signature);
+    }
+
+    pub fn initialize_systems(&mut self) {
+        self.system_manager.initialize_all_systems(
+            &mut self.world_coordinator
+        );
     }
 
     pub fn update_systems(&mut self, dt: f32) {
