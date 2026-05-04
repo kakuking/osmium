@@ -23,6 +23,7 @@ Now approahcing new horizons and feeling my way through it
 - [x] Added User Controller
 - [x] Add Physics Simulation using Rapier, 3D only
 - [x] Fix render pass attachment issue
+- [x] Fix the physics issue (temporary fix by locking rotation on x and y axes)
 - [ ] Add collision checking stuff
 - [ ] Add Proper global descriptors (camera, lighting, etc)
 - [ ] Add better event handling

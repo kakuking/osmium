@@ -34,7 +34,8 @@ impl PhysicsSystem {
         let body_builder = match config.body_type {
             PhysicsBodyType::Dynamic => RigidBodyBuilder::dynamic(),
             PhysicsBodyType::Fixed => RigidBodyBuilder::fixed(),
-        };
+        }
+            .enabled_rotations(false, false, true); // TODO - REMOVE THIS LOCK ON ROTATIONS
 
         let rigid_body = body_builder
             .translation(vector![
@@ -103,11 +104,11 @@ impl SystemTrait for PhysicsSystem {
 
         let body_handle = world.get_component::<PhysicsBody>(entity).handle;
 
-        let Some(pos) = world
+        let Some((pos, rot)) = world
             .physics_world
             .bodies
             .get(body_handle)
-            .map(|body| *body.translation()) 
+            .map(|body| (*body.translation(), *body.rotation())) 
         else {
             return;
         };
@@ -117,6 +118,8 @@ impl SystemTrait for PhysicsSystem {
         transform.position.x = pos.x;
         transform.position.y = pos.y;
         transform.position.z = pos.z;
+
+        transform.rotation = rot;
     }
 
     fn as_any(&self) -> &dyn Any {

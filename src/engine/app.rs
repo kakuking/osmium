@@ -11,7 +11,7 @@ use crate::engine::{
     }, ecs::{
         components::{
             movement_speeds::MovementSpeeds, 
-            physics::{PhysicsBody, PhysicsBodyConfig, PhysicsCollider}, 
+            physics::{PhysicsBody, PhysicsBodyConfig, PhysicsBodyType, PhysicsCollider}, 
             renderable::MeshRenderable, 
             transform::Transform
         }, coordinator::Coordinator, 
@@ -46,7 +46,6 @@ impl OsmiumEngine {
     pub fn init() -> Self {
         let mut config = RendererConfig::new();
         config.render_pass.samples = 2;
-        config.window_config.active = false;
 
         let event_loop = EventLoop::new();
 
@@ -59,48 +58,61 @@ impl OsmiumEngine {
         coordinator.register_component::<PhysicsBody>();
         coordinator.register_component::<PhysicsCollider>();
 
-        let _physics_system = coordinator.register_system::<PhysicsSystem>();
-        let _render_system = coordinator.register_system::<RenderSystem>();
-        let _user_controllable_system = coordinator.register_system::<UserControllerSystem>();
+        {
+            coordinator.register_system::<PhysicsSystem>();
 
-        let mut physics_signature = Signature::new();
-        physics_signature.set(
-            coordinator.get_component_type::<Transform>() as usize, 
-            true
-        );
-        physics_signature.set(
-            coordinator.get_component_type::<PhysicsBodyConfig>() as usize, 
-            true
-        );
-        coordinator.set_system_signature::<PhysicsSystem>(physics_signature);
+            let mut signature = Signature::new();
+            signature.set(
+                coordinator.get_component_type::<Transform>() as usize, 
+                true
+            );
+            signature.set(
+                coordinator.get_component_type::<PhysicsBodyConfig>() as usize, 
+                true
+            );
 
-        let mut render_signature = Signature::new();
-        render_signature.set(
-            coordinator.get_component_type::<MeshRenderable>() as usize,
-            true
-        );
-        render_signature.set(
-            coordinator.get_component_type::<Transform>() as usize,
-            true
-        );
-        coordinator.set_system_signature::<RenderSystem>(render_signature);
+            coordinator.set_system_signature::<PhysicsSystem>(signature);
+        }
 
-        let mut uc_signature = Signature::new();
-        uc_signature.set(
-            coordinator.get_component_type::<Transform>() as usize, 
-            true
-        );
-        uc_signature.set(
-            coordinator.get_component_type::<MovementSpeeds>() as usize, 
-            true
-        );
-        coordinator.set_system_signature::<UserControllerSystem>(uc_signature);
+        {
+            coordinator.register_system::<RenderSystem>();
+
+            let mut signature = Signature::new();
+            signature.set(
+                coordinator.get_component_type::<MeshRenderable>() as usize,
+                true
+            );
+            signature.set(
+                coordinator.get_component_type::<Transform>() as usize,
+                true
+            );
+
+            coordinator.set_system_signature::<RenderSystem>(signature);
+        }
+
+        {
+            coordinator.register_system::<UserControllerSystem>();
+
+            let mut signature = Signature::new();
+            signature.set(
+                coordinator.get_component_type::<Transform>() as usize, 
+                true
+            );
+            signature.set(
+                coordinator.get_component_type::<MovementSpeeds>() as usize, 
+                true
+            );
+            coordinator.set_system_signature::<UserControllerSystem>(signature);
+        }
 
         let mut assets = Self::create_basic_scene(&mut coordinator);
 
         coordinator.initialize_systems();
-        
-        let mut window_manager = WindowManager::init(&config.window_config, &event_loop);
+
+        let mut window_manager = WindowManager::init(
+            &config.window_config, 
+            &event_loop
+        );
 
         let renderer = Renderer::init(
             &mut window_manager,
@@ -120,66 +132,136 @@ impl OsmiumEngine {
     }
 
     fn create_basic_scene(coordinator: &mut Coordinator) -> AssetManager {
-        let triangles = vec![
-            OsmiumVertex { position: [-0.8, -0.5, 0.0], uv: [0.0, 0.0]},
-            OsmiumVertex { position: [ -0.3,  0.5, 0.0], uv: [0.0, 1.0] },
-            OsmiumVertex { position: [ 0.2, -0.5, 0.0], uv: [1.0, 0.0] },
-        ];
-
-        
-        let triangles2 = vec![
-            OsmiumVertex { position: [-0.2, 0.5, 0.0], uv: [0.0, 1.0] },
-            OsmiumVertex { position: [ 0.3, -0.5, 0.0], uv: [1.0, 0.0] },
-            OsmiumVertex { position: [ 0.8, 0.5, 0.0], uv: [1.0, 1.0] },
-        ];
-
-        let floor_triangles = vec![
-            OsmiumVertex { position: [-0.8, -0.05, 0.0], uv: [0.0, 0.0] },
-            OsmiumVertex { position: [ 0.8, -0.05, 0.0], uv: [1.0, 0.0] },
-            OsmiumVertex { position: [ 0.0,  0.15, 0.0], uv: [0.5, 1.0] },
-        ];
-        
-        let mesh = Mesh::init(triangles, None);
-        let material_config = MaterialConfig::new();
-        let mesh2 = Mesh::init(triangles2, None);
-        let floor_mesh = Mesh::init(floor_triangles, None);
-
         let mut asset_manager = AssetManager::new();
-
-        let mesh_handle = asset_manager.add_mesh(mesh);
-        let mesh2_handle = asset_manager.add_mesh(mesh2);
-        let material_handle = asset_manager.add_material_config(material_config);
-        let floor_mesh_handle = asset_manager.add_mesh(floor_mesh);
-
-        let entity = coordinator.create_entity();
-
-        coordinator.add_component(entity, MeshRenderable::new(mesh_handle, material_handle));
-        coordinator.add_component(entity, Transform::new());
-        // coordinator.add_component(entity, Gravity::new());
-        // coordinator.add_component(entity, RigidBody::new());
-        coordinator.add_component(entity, MovementSpeeds::new());
-
-        let entity2 = coordinator.create_entity();
-
-        coordinator.add_component(entity2, MeshRenderable::new(mesh2_handle, material_handle));
-        coordinator.add_component(entity2, Transform::new());
-        coordinator.add_component(entity2, PhysicsBodyConfig::dynamic_box([0.5, 0.5, 0.5]));
         
-        let floor_entity = coordinator.create_entity();
-        let mut floor_transform = Transform::new();
-        floor_transform.position.y = -1.0; // visually below if your renderer Y is flipped
-        floor_transform.position.z = 0.1;
+        let material_config = MaterialConfig::new();
+        let material_handle = asset_manager.add_material_config(material_config);
 
-        coordinator.add_component(
-            floor_entity,
-            MeshRenderable::new(floor_mesh_handle, material_handle),
-        );
+        {
+            let vertices = vec![
+                OsmiumVertex {position: [-0.8, -0.5, 0.0], uv: [0.0, 0.0]},
+                OsmiumVertex {position: [ -0.3,  0.5, 0.0], uv: [0.0, 1.0]},
+                OsmiumVertex {position: [ 0.2, -0.5, 0.0], uv: [1.0, 0.0]},
+            ];
+            
+            let mesh = Mesh::init(
+                vertices, 
+                None
+            );
 
-        coordinator.add_component(floor_entity, floor_transform);
-        coordinator.add_component(
-            floor_entity,
-            PhysicsBodyConfig::fixed_box([0.8, 0.2, 0.5]),
-        );
+            let mesh_handle = asset_manager.add_mesh(mesh);
+
+            let entity = coordinator.create_entity();
+
+            coordinator.add_component(
+                entity, 
+                MeshRenderable::new(
+                    mesh_handle, 
+                    material_handle
+                )
+            );
+
+            coordinator.add_component(
+                entity, 
+                Transform::new()
+            );
+
+            coordinator.add_component(
+                entity, 
+                MovementSpeeds::new()
+            );
+        }
+
+        {
+            let vertices = vec![
+                OsmiumVertex {position: [-0.5, -0.5, 0.0], uv: [0.0, 0.0]},
+                OsmiumVertex {position: [ 0.5, -0.5, 0.0], uv: [1.0, 0.0]},
+                OsmiumVertex {position: [ -0.5,  0.5, 0.0], uv: [0.0, 1.0]},
+                OsmiumVertex {position: [ 0.5, -0.5, 0.0], uv: [1.0, 0.0]},
+                OsmiumVertex {position: [ -0.5,  0.5, 0.0], uv: [0.0, 1.0]},
+                OsmiumVertex {position: [ 0.5,  0.5, 0.0], uv: [1.0, 1.0]},
+            ];
+
+            let collider = PhysicsBodyConfig::from_vertices(
+                &vertices,
+                0.5,
+                PhysicsBodyType::Dynamic
+            );
+
+            let mesh = Mesh::init(
+                vertices, 
+                None
+            );
+
+            let mesh_handle = asset_manager.add_mesh(mesh);
+            
+            let entity = coordinator.create_entity();
+
+            coordinator.add_component(
+                entity, 
+                MeshRenderable::new(
+                    mesh_handle, 
+                    material_handle
+                )
+            );
+
+            coordinator.add_component(
+                entity, 
+                Transform::new()
+            );
+
+            coordinator.add_component(
+                entity, 
+                collider
+            );
+        }
+
+        {
+            let vertices = vec![
+                OsmiumVertex {position: [-0.8, -0.05, 0.0], uv: [0.0, 0.0]},
+                OsmiumVertex {position: [ 0.8, -0.05, 0.0], uv: [1.0, 0.0]},
+                OsmiumVertex {position: [ -0.8,  0.15, 0.0], uv: [0.0, 1.0]},
+                OsmiumVertex {position: [ 0.8, -0.05, 0.0], uv: [1.0, 0.0]},
+                OsmiumVertex {position: [ -0.8,  0.15, 0.0], uv: [0.0, 1.0]},
+                OsmiumVertex {position: [ 0.8,  0.15, 0.0], uv: [1.0, 1.0]},
+            ];
+
+            let collider = PhysicsBodyConfig::from_vertices(
+                &vertices,
+                0.5,
+                PhysicsBodyType::Fixed
+            );
+            
+            let mesh = Mesh::init(
+                vertices, 
+                None
+            );
+    
+            let mesh_handle = asset_manager.add_mesh(mesh);
+    
+            let entity = coordinator.create_entity();
+            let mut transform = Transform::new();
+            transform.position.y = -1.0;
+            transform.position.z = 0.1;
+    
+            coordinator.add_component(
+                entity,
+                MeshRenderable::new(
+                    mesh_handle, 
+                    material_handle
+                ),
+            );
+    
+            coordinator.add_component(
+                entity, 
+                transform
+            );
+
+            coordinator.add_component(
+                entity,
+                collider
+            );
+        }
 
         asset_manager
     }

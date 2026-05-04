@@ -1,5 +1,7 @@
 use rapier3d::prelude::*;
 
+use crate::engine::scene::mesh::OsmiumVertex;
+
 #[derive(Clone, Copy, Debug)]
 pub struct PhysicsBody {
     pub handle: RigidBodyHandle,
@@ -23,17 +25,33 @@ pub struct PhysicsBodyConfig {
 }
 
 impl PhysicsBodyConfig {
-    pub fn dynamic_box(half_extents: [f32; 3]) -> Self {
+    pub fn dynamic_box(half_extents: [f32; 3], body_type: PhysicsBodyType) -> Self {
         Self {
-            body_type: PhysicsBodyType::Dynamic,
+            body_type,
             half_extents,
         }
     }
 
-    pub fn fixed_box(half_extents: [f32; 3]) -> Self {
+    pub fn from_vertices(vertices: &[OsmiumVertex], z_half: f32, body_type: PhysicsBodyType) -> Self {
+        let mut min = [f32::MAX; 3];
+        let mut max = [f32::MIN; 3];
+
+        for v in vertices {
+            for i in 0..3 {
+                min[i] = min[i].min(v.position[i]);
+                max[i] = max[i].max(v.position[i]);
+            }
+        }
+
+        let half_extents = [
+            (max[0] - min[0]) * 0.5,
+            (max[1] - min[1]) * 0.5,
+            z_half,
+        ];
+
         Self {
-            body_type: PhysicsBodyType::Fixed,
-            half_extents,
+            body_type,
+            half_extents
         }
     }
 }
