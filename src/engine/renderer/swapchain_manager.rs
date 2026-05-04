@@ -1,12 +1,21 @@
 use std::sync::Arc;
 
 use vulkano::{
-    format::Format, image::{
-        Image, 
-        ImageCreateInfo, 
-        ImageType, 
-        ImageUsage, 
-        SampleCount
+    command_buffer::{
+        AutoCommandBufferBuilder, 
+        ClearColorImageInfo, 
+        ClearDepthStencilImageInfo, 
+        CommandBufferUsage, 
+    }, 
+    format::{
+        ClearColorValue, 
+        Format
+    }, image::{
+    Image, 
+    ImageCreateInfo, 
+    ImageType, 
+    ImageUsage, 
+    SampleCount
     }, memory::allocator::{
         AllocationCreateInfo, 
         MemoryTypeFilter
@@ -19,7 +28,7 @@ use vulkano::{
     }, swapchain::{
         Swapchain, 
         SwapchainCreateInfo
-    }
+    }, sync::{self, GpuFuture}
 };
 
 use crate::engine::{
@@ -82,7 +91,7 @@ impl SwapchainManager {
         )
         .unwrap();
 
-        let msaa_images = Self::create_msaa_images(
+        let msaa_images: Vec<Arc<Image>> = Self::create_msaa_images(
             vulkan_context,
             image_format,
             dims.width,
@@ -105,6 +114,12 @@ impl SwapchainManager {
             vec![]
         };
 
+        Self::transition_image_layouts(
+            vulkan_context, 
+            &images, 
+            &msaa_images, 
+            &depth_images
+        );
 
         let viewport = Viewport {
             offset: [0.0, 0.0],
@@ -166,7 +181,7 @@ impl SwapchainManager {
                         image_type: ImageType::Dim2d,
                         format: depth_format.unwrap(),
                         extent: [width, height, 1],
-                        usage: ImageUsage::DEPTH_STENCIL_ATTACHMENT,
+                        usage: ImageUsage::DEPTH_STENCIL_ATTACHMENT | ImageUsage::TRANSFER_DST,
                         samples,
                         ..Default::default()
                     },
@@ -200,7 +215,7 @@ impl SwapchainManager {
                         image_type: ImageType::Dim2d,
                         format: image_format,
                         extent: [width, height, 1],
-                        usage: ImageUsage::COLOR_ATTACHMENT,
+                        usage: ImageUsage::COLOR_ATTACHMENT | ImageUsage::TRANSFER_DST,
                         samples,
                         ..Default::default()
                     },
@@ -212,6 +227,56 @@ impl SwapchainManager {
                 .unwrap()
             })
             .collect()
+    }
+
+    fn transition_image_layouts(
+        vulkan_context: &VulkanContext,
+        color_images: &Vec<Arc<Image>>,
+        msaa_images: &Vec<Arc<Image>>,
+        depth_images: &Vec<Arc<Image>>,
+    ) {
+        if !msaa_images.is_empty() {
+            let mut builder = AutoCommandBufferBuilder::primary(
+                &vulkan_context.command_buffer_allocator,
+                vulkan_context.get_queue().queue_family_index(),
+                CommandBufferUsage::OneTimeSubmit,
+            ).unwrap();
+
+            for image in msaa_images {
+                builder
+                    .clear_color_image(ClearColorImageInfo {
+                        clear_value: ClearColorValue::Float([0.0, 0.0, 0.0, 0.0]),
+                        ..ClearColorImageInfo::image(image.clone())
+                    })
+                    .unwrap();
+            }
+
+            for image in color_images {
+                builder
+                    .clear_color_image(ClearColorImageInfo {
+                        clear_value: ClearColorValue::Float([0.0, 0.0, 0.0, 0.0]),
+                        ..ClearColorImageInfo::image(image.clone())
+                    })
+                    .unwrap();
+            }
+
+            for image in depth_images {
+                builder
+                    .clear_depth_stencil_image(ClearDepthStencilImageInfo {
+                        clear_value: 1.0.into(),
+                        ..ClearDepthStencilImageInfo::image(image.clone())
+                    })
+                    .unwrap();
+            }
+            
+            let cb = builder.build().unwrap();
+            let future = sync::now(vulkan_context.get_device())
+                .then_execute(vulkan_context.get_queue(), cb)
+                .unwrap()
+                .then_signal_fence_and_flush()
+                .unwrap();
+            future.wait(None).unwrap();
+        }
     }
 
     fn create_framebuffers(
@@ -320,6 +385,13 @@ impl SwapchainManager {
                 self.samples
             );
 
+        Self::transition_image_layouts(
+            vulkan_context, 
+            &images, 
+            &msaa_images, 
+            &depth_images
+        );
+
         let viewport = Viewport {
             offset: [0.0, 0.0],
             extent: [dims.width as f32, dims.height as f32],
@@ -338,6 +410,7 @@ impl SwapchainManager {
         self.swapchain = swapchain;
         self.images = images;
         self.msaa_images = msaa_images;
+        self.depth_images = depth_images;
         self.viewport = viewport;
         self.framebuffers = framebuffers;
 

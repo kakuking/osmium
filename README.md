@@ -22,8 +22,9 @@ Now approahcing new horizons and feeling my way through it
 - [x] Added input/event manager
 - [x] Added User Controller
 - [x] Add Physics Simulation using Rapier, 3D only
-- [ ] Fix render pass attachment issue
+- [x] Fix render pass attachment issue
 - [ ] Add collision checking stuff
+- [ ] Add Proper global descriptors (camera, lighting, etc)
 - [ ] Add better event handling
 - [ ] Add Render Graph \*\*\*\*\*\*
 - [ ] and then ...

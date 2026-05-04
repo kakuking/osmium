@@ -3,14 +3,18 @@ use std::sync::Arc;
 use vulkano::{
     device::Device, 
     format::Format, 
-    render_pass::RenderPass
+    render_pass::RenderPass,
+    image::ImageLayout::{
+        Undefined,
+        ColorAttachmentOptimal,
+        PresentSrc,
+        DepthStencilAttachmentOptimal
+    }
 };
 
 use crate::engine::config::renderer_config::RendererConfig;
 
-pub struct RenderPassConstructor {
-
-}
+pub struct RenderPassConstructor;
 
 impl RenderPassConstructor {
     pub fn create_render_pass(
@@ -45,6 +49,8 @@ impl RenderPassConstructor {
                             samples: 1,
                             load_op: Clear,
                             store_op: Store,
+                            initial_layout: PresentSrc,
+                            final_layout: PresentSrc,
                         },
                     },
                     pass: {
@@ -64,6 +70,8 @@ impl RenderPassConstructor {
                             samples: 1,
                             load_op: Clear,
                             store_op: DontCare,
+                            initial_layout: PresentSrc,
+                            final_layout: PresentSrc,
                         },
                     },
                     pass: {
@@ -83,6 +91,8 @@ impl RenderPassConstructor {
                             samples: 1,
                             load_op: DontCare,
                             store_op: Store,
+                            initial_layout: PresentSrc,
+                            final_layout: PresentSrc,
                         },
                     },
                     pass: {
@@ -102,6 +112,8 @@ impl RenderPassConstructor {
                             samples: 1,
                             load_op: DontCare,
                             store_op: DontCare,
+                            initial_layout: PresentSrc,
+                            final_layout: PresentSrc,
                         },
                     },
                     pass: {
@@ -134,12 +146,16 @@ impl RenderPassConstructor {
                             samples: 1,
                             load_op: Clear,
                             store_op: Store,
+                            initial_layout: PresentSrc,
+                            final_layout: PresentSrc,
                         },
                         depth: {
                             format: depth_format,
                             samples: 1,
                             load_op: Clear,
                             store_op: DontCare,
+                            initial_layout: Undefined,
+                            final_layout: DepthStencilAttachmentOptimal,
                         },
                     },
                     pass: {
@@ -159,12 +175,16 @@ impl RenderPassConstructor {
                             samples: 1,
                             load_op: Clear,
                             store_op: Store,
+                            initial_layout: PresentSrc,
+                            final_layout: PresentSrc,
                         },
                         depth: {
                             format: depth_format,
                             samples: 1,
                             load_op: DontCare,
                             store_op: DontCare,
+                            initial_layout: DepthStencilAttachmentOptimal,
+                            final_layout: DepthStencilAttachmentOptimal,
                         },
                     },
                     pass: {
@@ -184,12 +204,16 @@ impl RenderPassConstructor {
                             samples: 1,
                             load_op: DontCare,
                             store_op: Store,
+                            initial_layout: PresentSrc,
+                            final_layout: PresentSrc,
                         },
                         depth: {
                             format: depth_format,
                             samples: 1,
                             load_op: Clear,
                             store_op: DontCare,
+                            initial_layout: DepthStencilAttachmentOptimal,
+                            final_layout: DepthStencilAttachmentOptimal,
                         },
                     },
                     pass: {
@@ -209,12 +233,16 @@ impl RenderPassConstructor {
                             samples: 1,
                             load_op: Clear,
                             store_op: Store,
+                            initial_layout: PresentSrc,
+                            final_layout: PresentSrc,
                         },
                         depth: {
                             format: depth_format,
                             samples: 1,
                             load_op: Clear,
                             store_op: DontCare,
+                            initial_layout: Undefined,
+                            final_layout: DepthStencilAttachmentOptimal,
                         },
                     },
                     pass: {
@@ -242,12 +270,16 @@ impl RenderPassConstructor {
                     samples: samples,
                     load_op: Clear,
                     store_op: DontCare,
+                    initial_layout: ColorAttachmentOptimal,
+                    final_layout: ColorAttachmentOptimal,
                 },
                 color_resolve: {
                     format: image_format,
                     samples: 1,
                     load_op: DontCare,
                     store_op: Store,
+                    initial_layout: PresentSrc,
+                    final_layout: PresentSrc,
                 },
             },
             pass: {
@@ -275,18 +307,24 @@ impl RenderPassConstructor {
                     samples: samples,
                     load_op: Clear,
                     store_op: DontCare,
+                    initial_layout: ColorAttachmentOptimal,
+                    final_layout: ColorAttachmentOptimal,
                 },
                 color_resolve: {
                     format: image_format,
                     samples: 1,
                     load_op: DontCare,
                     store_op: Store,
+                    initial_layout: PresentSrc,
+                    final_layout: PresentSrc,
                 },
                 depth: {
                     format: depth_format,
                     samples: samples,
                     load_op: Clear,
                     store_op: DontCare,
+                    initial_layout: Undefined,
+                    final_layout: DepthStencilAttachmentOptimal,
                 },
             },
             pass: {

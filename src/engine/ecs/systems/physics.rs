@@ -89,10 +89,6 @@ impl SystemTrait for PhysicsSystem {
     }
 
     fn update_all_entities(&self, world: &mut WorldCoordinator, dt: f32) {
-        for entity in self.entities.iter().copied() {
-            self.initialize_entity(entity, world);
-        }
-
         world.physics_world.step(dt);
 
         for entity in self.entities.iter().copied() {

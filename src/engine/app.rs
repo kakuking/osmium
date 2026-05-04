@@ -46,6 +46,7 @@ impl OsmiumEngine {
     pub fn init() -> Self {
         let mut config = RendererConfig::new();
         config.render_pass.samples = 2;
+        config.window_config.active = false;
 
         let event_loop = EventLoop::new();
 
@@ -167,6 +168,7 @@ impl OsmiumEngine {
         let floor_entity = coordinator.create_entity();
         let mut floor_transform = Transform::new();
         floor_transform.position.y = -1.0; // visually below if your renderer Y is flipped
+        floor_transform.position.z = 0.1;
 
         coordinator.add_component(
             floor_entity,
@@ -176,7 +178,7 @@ impl OsmiumEngine {
         coordinator.add_component(floor_entity, floor_transform);
         coordinator.add_component(
             floor_entity,
-            PhysicsBodyConfig::fixed_box([0.8, 0.05, 0.5]),
+            PhysicsBodyConfig::fixed_box([0.8, 0.2, 0.5]),
         );
 
         asset_manager
