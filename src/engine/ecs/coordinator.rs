@@ -142,7 +142,7 @@ impl Coordinator {
                     mesh: mesh_renderable.mesh,
                     material: mesh_renderable.material,
 
-                    model_matrix: transform.model_matrix()
+                    model_matrix: transform.model_matrix_array()
                 }
             })
             .collect()

@@ -13,7 +13,7 @@ use crate::engine::{
 #[repr(C)]
 #[derive(Debug, BufferContents, Clone, Copy)]
 pub struct ObjectPushConstants {
-    pub model: [[f32; 4]; 4]
+    pub model: [f32; 16]
 }
 
 #[derive(Clone)]

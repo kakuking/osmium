@@ -9,7 +9,7 @@ use crate::engine::{
 pub struct RenderItem {
     pub mesh: Handle<Mesh>,
     pub material: Handle<Material>,
-    pub model_matrix: [[f32; 4]; 4]
+    pub model_matrix: [f32; 16]
 }
 
 impl RenderItem {

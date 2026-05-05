@@ -1,4 +1,8 @@
-use nalgebra::{Matrix4, UnitQuaternion, Vector3};
+use nalgebra::{
+    Matrix4, 
+    UnitQuaternion, 
+    Vector3
+};
 
 #[derive(Debug, Clone, Copy)]
 pub struct Transform {
@@ -19,19 +23,21 @@ impl Transform {
         }
     }
 
-    pub fn model_matrix(&self) -> [[f32; 4]; 4] {
-        let translation = Matrix4::new_translation(
-            &self.position
-        );
-
+    pub fn model_matrix(&self) -> Matrix4<f32> {
+        let translation = Matrix4::new_translation(&self.position);
         let rotation = self.rotation.to_homogeneous();
+        let scale = Matrix4::new_nonuniform_scaling(&self.scale);
 
-        let scale = Matrix4::new_nonuniform_scaling(
-            &self.scale
-        );
+        translation * rotation * scale
+    }
 
-        let model = translation * rotation * scale;
+    pub fn model_matrix_array(&self) -> [f32; 16] {
+        Self::matrix_to_array(&self.model_matrix())
+    }
 
-        model.into()
+    pub fn matrix_to_array(m: &Matrix4<f32>) -> [f32; 16] {
+        let mut out = [0.0; 16];
+        out.copy_from_slice(m.as_slice());
+        out
     }
 }

@@ -20,9 +20,9 @@ use crate::engine::renderer::{buffer_manager::BufferManager, descriptor_manager:
 #[repr(C)]
 #[derive(Clone, Copy, Default, Debug, BufferContents)]
 pub struct CameraGpuData {
-    pub view: [[f32; 4]; 4],
-    pub proj: [[f32; 4]; 4],
-    pub view_proj: [[f32; 4]; 4],
+    pub view: [f32; 16],
+    pub proj: [f32; 16],
+    pub view_proj: [f32; 16],
     pub camera_pos: [f32; 4],
 }
 

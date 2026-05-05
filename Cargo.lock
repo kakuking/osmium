@@ -1431,7 +1431,6 @@ dependencies = [
 name = "osmium"
 version = "0.1.0"
 dependencies = [
- "glam 0.14.0",
  "image",
  "nalgebra",
  "rapier2d",
