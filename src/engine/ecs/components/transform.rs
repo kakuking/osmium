@@ -5,6 +5,8 @@ pub struct Transform {
     pub position: Vector3<f32>,
     pub rotation: UnitQuaternion<f32>,
     pub scale: Vector3<f32>,
+
+    pub dirty: bool
 }
 
 impl Transform {
@@ -13,6 +15,7 @@ impl Transform {
             position: Vector3::zeros(),
             rotation: UnitQuaternion::identity(),
             scale: Vector3::new(1.0, 1.0, 1.0),
+            dirty: false
         }
     }
 

@@ -10,7 +10,7 @@ use vulkano::{
         SubpassBeginInfo, 
         SubpassContents, 
         SubpassEndInfo
-    }, format::{
+    }, descriptor_set::PersistentDescriptorSet, format::{
         ClearValue, Format
     }, pipeline::{
         GraphicsPipeline, Pipeline, PipelineBindPoint
@@ -32,9 +32,11 @@ use vulkano::{
 };
 
 use crate::engine::{
-    config::renderer_config::RendererConfig, ecs::components::renderable::ObjectPushConstants, renderer::{
+    config::renderer_config::RendererConfig, ecs::components::renderable::ObjectPushConstants, 
+    renderer::{
         buffer_manager::BufferManager, 
         descriptor_manager::DescriptorManager, 
+        global_resources::{GlobalResources, RenderGlobals}, 
         image_manager::ImageManager, 
         render_pass_constructor::RenderPassConstructor, 
         shader_manager::ShaderManager, 
@@ -42,7 +44,8 @@ use crate::engine::{
         vulkan_context::VulkanContext
     }, scene::{
         asset_manager::AssetManager, render_item::RenderItem
-    }, window::window_manager::WindowManager
+    }, 
+    window::window_manager::WindowManager
 };
 
 type FenceType = FenceSignalFuture<
@@ -90,14 +93,14 @@ pub struct Renderer {
     swapchain_manager: SwapchainManager,
     command_buffers: Vec<Arc<PrimaryAutoCommandBuffer>>,
 
-    // scene: Scene
+    // only 1 as all materials have same set 0
+    global_resources: GlobalResources 
 }
 
 impl Renderer {
     pub fn init(
         window_manager: &mut WindowManager,
         config: &RendererConfig,
-        // scene: Scene,
         render_items: &Vec<RenderItem>,
         assets: &mut AssetManager,
     ) -> Renderer
@@ -187,13 +190,21 @@ impl Renderer {
             );
         }
 
+        let global_resources =  GlobalResources::new(
+            &buffer_manager,
+            &descriptor_manager,
+            materials.iter().next().unwrap().get_pipeline(),
+            swapchain_manager.get_swapchain_images().len()
+        );
+
         let command_buffers: Vec<Arc<PrimaryAutoCommandBuffer>> = Self::create_command_buffers(
             &vulkan_context, 
             swapchain_manager.enable_depth(),
             config.render_pass.samples,
             swapchain_manager.get_framebuffers(), 
             render_items,
-            assets
+            assets,
+            &global_resources
         );
 
         Self {
@@ -208,7 +219,8 @@ impl Renderer {
 
             swapchain_manager,
             frame_state,
-            // scene,
+            
+            global_resources,
         }
     }
 
@@ -218,21 +230,6 @@ impl Renderer {
         }
 
         self.frame_state.request_swapchain_recreate();
-    }
-
-    pub fn rebuild_command_buffers(
-        &mut self,
-        render_items: &Vec<RenderItem>,
-        assets: &AssetManager,
-    ) {
-        self.command_buffers = Self::create_command_buffers(
-            &self.vulkan_context,
-            self.swapchain_manager.enable_depth(),
-            self.swapchain_manager.get_samples() as u32,
-            self.swapchain_manager.get_framebuffers(),
-            render_items,
-            assets,
-        );
     }
 
     pub fn recreate_swapchain(
@@ -277,7 +274,8 @@ impl Renderer {
             self.swapchain_manager.get_samples() as u32,
             self.swapchain_manager.get_framebuffers(),
             &render_items,
-            assets
+            assets,
+            &self.global_resources
         );
 
         self.frame_state.fences = vec![None; self.swapchain_manager.get_swapchain_images().len()];
@@ -289,6 +287,7 @@ impl Renderer {
         window_manager: &WindowManager,
         assets: &mut AssetManager,
         render_items: &Vec<RenderItem>,
+        globals: &RenderGlobals
     ) {
         if self.frame_state.recreate_swapchain {
             self.recreate_swapchain(
@@ -320,6 +319,11 @@ impl Renderer {
             image_fence.wait(None).unwrap();
         }
 
+        self.global_resources.update(
+            image_i as usize, 
+            globals
+        );
+
         let previous_future = match self.frame_state.fences[self.frame_state.previous_fence_i].clone() {
             None => {
                 let mut now = sync::now(
@@ -333,11 +337,21 @@ impl Renderer {
 
         let queue = self.vulkan_context.get_queue();
 
+        let command_buffers = Self::create_command_buffers(
+            &self.vulkan_context, 
+            self.swapchain_manager.enable_depth(), 
+            self.swapchain_manager.get_samples() as u32, 
+            self.swapchain_manager.get_framebuffers(), 
+            render_items, 
+            assets,
+            &self.global_resources
+        );
+
         let future = previous_future
             .join(acquire_future)
             .then_execute(
                 queue.clone(), 
-                self.command_buffers[image_i as usize].clone()
+                command_buffers[image_i as usize].clone()
             )
             .unwrap()
             .then_swapchain_present(
@@ -369,18 +383,21 @@ impl Renderer {
         msaa: u32,
         framebuffers: &Vec<Arc<Framebuffer>>,
         render_items: &Vec<RenderItem>,
-        assets: &AssetManager
+        assets: &AssetManager,
+        global_resources: &GlobalResources
     ) -> Vec<Arc<PrimaryAutoCommandBuffer>> {
         framebuffers
             .iter()
-            .map(|framebuffer| {
+            .enumerate()
+            .map(|(frame_i, framebuffer)| {
                 Self::create_one_command_buffer(
                     vulkan_context, 
                     enable_depth,
                     msaa,
                     framebuffer.clone(), 
                     render_items,
-                    assets
+                    assets,
+                    global_resources.descriptor_set(frame_i)
                 )
             })
             .collect()
@@ -392,7 +409,8 @@ impl Renderer {
         msaa: u32,
         framebuffer: Arc<Framebuffer>,
         render_items: &Vec<RenderItem>,
-        assets: &AssetManager
+        assets: &AssetManager,
+        global_descriptor_set: Arc<PersistentDescriptorSet>
     ) -> Arc<PrimaryAutoCommandBuffer> {
         let clear_color = [0.5, 0.5, 0.5, 1.0];
 
@@ -452,8 +470,11 @@ impl Renderer {
                 .bind_descriptor_sets(
                     PipelineBindPoint::Graphics, 
                     pipeline.layout().clone(), 
-                    1, 
-                    material.get_descriptor_set()
+                    0, 
+                    (
+                        global_descriptor_set.clone(),
+                        material.get_descriptor_set()
+                    )
                 )
                 .unwrap()
                 .push_constants(

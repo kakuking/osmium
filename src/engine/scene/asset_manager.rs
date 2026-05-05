@@ -159,6 +159,10 @@ impl<T> AssetStorage<T> {
         &mut self.assets[handle.id()]
     }
 
+    pub fn iter(&self) -> impl Iterator<Item = &T> {
+        self.assets.iter()
+    }
+
     pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut T> {
         self.assets.iter_mut()
     }

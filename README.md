@@ -24,10 +24,13 @@ Now approahcing new horizons and feeling my way through it
 - [x] Add Physics Simulation using Rapier, 3D only
 - [x] Fix render pass attachment issue
 - [x] Fix the physics issue (temporary fix by locking rotation on x and y axes)
+- [x] Added Proper global descriptors (only camera for now)
+- [ ] Finish adding global descriptors (camera, lighting, etc)
+- [ ] Add shadow mapping
 - [ ] Add collision checking stuff
-- [ ] Add Proper global descriptors (camera, lighting, etc)
+- [ ] Add cascading shadow mapping?
 - [ ] Add better event handling
 - [ ] Add Render Graph \*\*\*\*\*\*
 - [ ] and then ...
 
-* -> Mayhaps
+\* -> Mayhaps

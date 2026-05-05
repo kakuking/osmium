@@ -25,7 +25,10 @@ pub struct DescriptorManager {
 impl DescriptorManager {
     pub fn new(device: Arc<Device>) -> Self {
         let allocator = 
-            StandardDescriptorSetAllocator::new(device.clone(), Default::default())
+            StandardDescriptorSetAllocator::new(
+                device.clone(), 
+                Default::default()
+            )
         ;
 
         Self {

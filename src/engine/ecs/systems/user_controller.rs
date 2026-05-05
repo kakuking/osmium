@@ -66,8 +66,16 @@ impl SystemTrait for UserControllerSystem {
         };
 
         {
-            let t = coordinator.get_component_mut::<Transform>(entity);
-            t.position += direction.component_mul(&translation) * dt;
+            let transform = coordinator.get_component_mut::<Transform>(entity);
+            let delta = direction.component_mul(&translation) * dt;
+            
+            if delta == Vector3::zeros() {
+                return;
+            }
+
+            transform.position += direction.component_mul(&translation) * dt;
+
+            transform.dirty = true;
         }
     }
 

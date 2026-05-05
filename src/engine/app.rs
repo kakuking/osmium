@@ -10,16 +10,20 @@ use crate::engine::{
         material_config::MaterialConfig, renderer_config::RendererConfig
     }, ecs::{
         components::{
+            camera::Camera, 
             movement_speeds::MovementSpeeds, 
-            physics::{PhysicsBody, PhysicsBodyConfig, PhysicsBodyType, PhysicsCollider}, 
+            physics::{
+                PhysicsBody, 
+                PhysicsBodyConfig, 
+                PhysicsBodyType, 
+                PhysicsCollider
+            }, 
             renderable::MeshRenderable, 
             transform::Transform
         }, coordinator::Coordinator, 
         signature::Signature, 
         systems::{
-            physics::PhysicsSystem, 
-            render::RenderSystem, 
-            user_controller::UserControllerSystem
+            camera::CameraSystem, physics::PhysicsSystem, render::RenderSystem, user_controller::UserControllerSystem
         }
     }, 
     renderer::renderer::Renderer, 
@@ -57,6 +61,7 @@ impl OsmiumEngine {
         coordinator.register_component::<PhysicsBodyConfig>();
         coordinator.register_component::<PhysicsBody>();
         coordinator.register_component::<PhysicsCollider>();
+        coordinator.register_component::<Camera>();
 
         {
             coordinator.register_system::<PhysicsSystem>();
@@ -105,6 +110,21 @@ impl OsmiumEngine {
             coordinator.set_system_signature::<UserControllerSystem>(signature);
         }
 
+        {
+            coordinator.register_system::<CameraSystem>();
+
+            let mut signature = Signature::new();
+            signature.set(
+                coordinator.get_component_type::<Transform>() as usize, 
+                true
+            );
+            signature.set(
+                coordinator.get_component_type::<Camera>() as usize, 
+                true
+            );
+            coordinator.set_system_signature::<CameraSystem>(signature);
+        }
+
         let mut assets = Self::create_basic_scene(&mut coordinator);
 
         coordinator.initialize_systems();
@@ -137,11 +157,12 @@ impl OsmiumEngine {
         let material_config = MaterialConfig::new();
         let material_handle = asset_manager.add_material_config(material_config);
 
+        // static triangle
         {
             let vertices = vec![
-                OsmiumVertex {position: [-0.8, -0.5, 0.0], uv: [0.0, 0.0]},
-                OsmiumVertex {position: [ -0.3,  0.5, 0.0], uv: [0.0, 1.0]},
-                OsmiumVertex {position: [ 0.2, -0.5, 0.0], uv: [1.0, 0.0]},
+                OsmiumVertex {position: [-0.8, -0.5, 0.1], uv: [0.0, 0.0]},
+                OsmiumVertex {position: [ -0.3,  0.5, 0.1], uv: [0.0, 1.0]},
+                OsmiumVertex {position: [ 0.2, -0.5, 0.1], uv: [1.0, 0.0]},
             ];
             
             let mesh = Mesh::init(
@@ -165,21 +186,17 @@ impl OsmiumEngine {
                 entity, 
                 Transform::new()
             );
-
-            coordinator.add_component(
-                entity, 
-                MovementSpeeds::new()
-            );
         }
 
+        // falling rectangle
         {
             let vertices = vec![
-                OsmiumVertex {position: [-0.5, -0.5, 0.0], uv: [0.0, 0.0]},
-                OsmiumVertex {position: [ 0.5, -0.5, 0.0], uv: [1.0, 0.0]},
-                OsmiumVertex {position: [ -0.5,  0.5, 0.0], uv: [0.0, 1.0]},
-                OsmiumVertex {position: [ 0.5, -0.5, 0.0], uv: [1.0, 0.0]},
-                OsmiumVertex {position: [ -0.5,  0.5, 0.0], uv: [0.0, 1.0]},
-                OsmiumVertex {position: [ 0.5,  0.5, 0.0], uv: [1.0, 1.0]},
+                OsmiumVertex {position: [-0.5, -0.5, 0.2], uv: [0.0, 0.0]},
+                OsmiumVertex {position: [ 0.5, -0.5, 0.2], uv: [1.0, 0.0]},
+                OsmiumVertex {position: [ -0.5,  0.5, 0.2], uv: [0.0, 1.0]},
+                OsmiumVertex {position: [ 0.5, -0.5, 0.2], uv: [1.0, 0.0]},
+                OsmiumVertex {position: [ -0.5,  0.5, 0.2], uv: [0.0, 1.0]},
+                OsmiumVertex {position: [ 0.5,  0.5, 0.2], uv: [1.0, 1.0]},
             ];
 
             let collider = PhysicsBodyConfig::from_vertices(
@@ -216,14 +233,15 @@ impl OsmiumEngine {
             );
         }
 
+        // Static floor
         {
             let vertices = vec![
-                OsmiumVertex {position: [-0.8, -0.05, 0.0], uv: [0.0, 0.0]},
-                OsmiumVertex {position: [ 0.8, -0.05, 0.0], uv: [1.0, 0.0]},
-                OsmiumVertex {position: [ -0.8,  0.15, 0.0], uv: [0.0, 1.0]},
-                OsmiumVertex {position: [ 0.8, -0.05, 0.0], uv: [1.0, 0.0]},
-                OsmiumVertex {position: [ -0.8,  0.15, 0.0], uv: [0.0, 1.0]},
-                OsmiumVertex {position: [ 0.8,  0.15, 0.0], uv: [1.0, 1.0]},
+                OsmiumVertex {position: [-0.8, -0.05, 0.2], uv: [0.0, 0.0]},
+                OsmiumVertex {position: [ 0.8, -0.05, 0.2], uv: [1.0, 0.0]},
+                OsmiumVertex {position: [ -0.8,  0.15, 0.2], uv: [0.0, 1.0]},
+                OsmiumVertex {position: [ 0.8, -0.05, 0.2], uv: [1.0, 0.0]},
+                OsmiumVertex {position: [ -0.8,  0.15, 0.2], uv: [0.0, 1.0]},
+                OsmiumVertex {position: [ 0.8,  0.15, 0.2], uv: [1.0, 1.0]},
             ];
 
             let collider = PhysicsBodyConfig::from_vertices(
@@ -260,6 +278,29 @@ impl OsmiumEngine {
             coordinator.add_component(
                 entity,
                 collider
+            );
+        }
+        
+        // camera
+        {
+            let entity = coordinator.create_entity();
+
+            let mut camera_transform = Transform::new();
+            camera_transform.position.z = 2.0;
+
+            coordinator.add_component(
+                entity, 
+                camera_transform
+            );
+
+            coordinator.add_component(
+                entity, 
+                Camera::new(true)
+            );
+
+            coordinator.add_component(
+                entity, 
+                MovementSpeeds::new()
             );
         }
 
@@ -367,15 +408,19 @@ impl OsmiumEngine {
                     coordinator
                         .update_systems(dt);
 
-                    renderer.rebuild_command_buffers(
-                        &coordinator.get_render_items(), 
-                        &assets
-                    );
+                    // renderer.rebuild_command_buffers(
+                    //     &coordinator.get_render_items(), 
+                    //     &assets
+                    // );
+
+                    let extent = window_manager.get_window().inner_size();
+                    let aspect_ratio = extent.width as f32 / extent.height.max(1) as f32;
 
                     renderer.render(
                         &window_manager,
                         &mut assets,
-                        &coordinator.get_render_items()
+                        &coordinator.get_render_items(),
+                        &coordinator.get_global_resources(aspect_ratio)
                     );
 
                     coordinator.clear_frame_events();

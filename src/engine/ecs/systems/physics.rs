@@ -115,11 +115,16 @@ impl SystemTrait for PhysicsSystem {
 
         let transform = world.get_component_mut::<Transform>(entity);
 
-        transform.position.x = pos.x;
-        transform.position.y = pos.y;
-        transform.position.z = pos.z;
+        if transform.position != pos || transform.rotation != rot {
+            transform.dirty = true;
+            
+            transform.position.x = pos.x;
+            transform.position.y = pos.y;
+            transform.position.z = pos.z;
+    
+            transform.rotation = rot;
+        }
 
-        transform.rotation = rot;
     }
 
     fn as_any(&self) -> &dyn Any {
