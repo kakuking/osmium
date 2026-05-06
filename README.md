@@ -10,23 +10,25 @@ Now approahcing new horizons and feeling my way through it
 - [x] Abstracted swapchain and stuff out
 - [x] Bonzo refactoring
 - [x] More flexible pipeline creation
-- [x] Added proper scene creation
-- [x] Added window configuration
-- [x] Added Material Configuration
-- [x] Added Materials with Textures
-- [x] Added Asset manager partially
+- [x] Add proper scene creation
+- [x] Add window configuration
+- [x] Add Material Configuration
+- [x] Add Materials with Textures
+- [x] Add Asset manager partially
 - [x] Add Shaders and textures to asset manager
-- [x] Added FPS limiter
+- [x] Add FPS limiter
 - [x] Add ECS
-- [x] Added Transforms as push constants
-- [x] Added input/event manager
-- [x] Added User Controller
+- [x] Add Transforms as push constants
+- [x] Add input/event manager
+- [x] Add User Controller
 - [x] Add Physics Simulation using Rapier, 3D only
 - [x] Fix render pass attachment issue
 - [x] Fix the physics issue (temporary fix by locking rotation on x and y axes)
-- [x] Added Proper global descriptors (only camera for now)
+- [x] Add Proper global descriptors (only camera for now)
 - [x] Removed GLAM and reverted it to just use nalgebra
 - [x] Add more camera types (orthographic and perspective)
+- [x] Add proper descriptors for meshes (for height maps)
+- [ ] Add loading mesh from file via mesh config
 - [ ] Finish adding global descriptors (camera, lighting, etc)
 - [ ] Add shadow mapping
 - [ ] Add collision checking stuff

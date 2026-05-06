@@ -83,14 +83,22 @@ impl DefaultTextures {
 
 pub struct ImageManager {
     pub memory_allocator: Arc<dyn MemoryAllocator>,
+    pub default_textures: DefaultTextures
 }
 
 impl ImageManager {
     pub fn init(
         memory_allocator: Arc<dyn MemoryAllocator>,
+        command_buffer_allocator: &StandardCommandBufferAllocator,
+        queue: Arc<Queue>,
     ) -> Self {
         Self {
-            memory_allocator
+            default_textures: DefaultTextures::new(
+                memory_allocator.clone(), 
+                command_buffer_allocator, 
+                queue
+            ),
+            memory_allocator,
         }
     }
 

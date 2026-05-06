@@ -6,14 +6,13 @@ use vulkano::{
         BufferUsage, 
         Subbuffer
     }, 
-    command_buffer::allocator::StandardCommandBufferAllocator, 
     descriptor_set::PersistentDescriptorSet, 
     device::{
-        Device, Queue
+        Device
     }, 
     image::SampleCount, 
     memory::allocator::{
-        MemoryAllocator, MemoryTypeFilter
+        MemoryTypeFilter
     }, 
     pipeline::{
         GraphicsPipeline, 
@@ -28,8 +27,7 @@ use crate::engine::{
         buffer_manager::BufferManager, 
         descriptor_manager::DescriptorManager, 
         image_manager::{
-            DefaultTextures, 
-            Texture
+            ImageManager, Texture
         }, 
         pipeline_constructor::PipelineConstructor, 
     }, scene::{
@@ -85,8 +83,6 @@ pub struct Material {
 
     pipeline: Option<Arc<GraphicsPipeline>>,
     descriptor_set: Option<Arc<PersistentDescriptorSet>>,
-
-    default_textures: DefaultTextures
 }
 
 impl Material {
@@ -94,9 +90,6 @@ impl Material {
         config: &MaterialConfig,
         material_assets: MaterialAssets,
         buffer_manager: &BufferManager,
-        command_buffer_allocator: &StandardCommandBufferAllocator,
-        queue: Arc<Queue>,
-        memory_allocator: Arc<dyn MemoryAllocator>,
     ) -> Self {
         let uniform = MaterialUniform {
             base_color: config.params.base_color,
@@ -122,12 +115,6 @@ impl Material {
             Some(MemoryTypeFilter::HOST_SEQUENTIAL_WRITE),
         );
 
-        let default_textures = DefaultTextures::new(
-            memory_allocator,
-            command_buffer_allocator,
-            queue,
-        );
-
         Self {
             name: config.name.clone(),
 
@@ -144,14 +131,13 @@ impl Material {
 
             pipeline: None,
             descriptor_set: None,
-
-            default_textures,
         }
     }
 
     pub fn recreate_descriptor_set(
         &mut self,
         textures: &AssetStorage<Arc<Texture>>,
+        image_manager: &ImageManager,
         descriptor_manager: &DescriptorManager,
     ) {
         let pipeline = self.get_pipeline();
@@ -166,19 +152,19 @@ impl Material {
 
         let albedo = self.albedo_texture
             .map(|handle| textures.get(handle).clone())
-            .unwrap_or(self.default_textures.white.clone());
+            .unwrap_or(image_manager.default_textures.white.clone());
 
         let normal = self.normal_texture
             .map(|handle| textures.get(handle).clone())
-            .unwrap_or(self.default_textures.flat_normal.clone());
+            .unwrap_or(image_manager.default_textures.flat_normal.clone());
 
         let roughness = self.roughness_texture
             .map(|handle| textures.get(handle).clone())
-            .unwrap_or(self.default_textures.gray.clone());
+            .unwrap_or(image_manager.default_textures.gray.clone());
 
         let metallic = self.metallic_texture
             .map(|handle| textures.get(handle).clone())
-            .unwrap_or(self.default_textures.black.clone());
+            .unwrap_or(image_manager.default_textures.black.clone());
 
         descriptor_manager.add_image_view_sampler(
             &mut writes,
@@ -227,6 +213,7 @@ impl Material {
         shaders: &ShaderStorage,
         textures: &AssetStorage<Arc<Texture>>,
         descriptor_manager: &DescriptorManager,
+        image_manager: &ImageManager
     ) {
         let vs = shaders.get(self.vertex_shader.clone());
         let fs = shaders.get(self.fragment_shader.clone());
@@ -244,6 +231,7 @@ impl Material {
 
         self.recreate_descriptor_set(
             textures,
+            image_manager,
             descriptor_manager,
         );
     }

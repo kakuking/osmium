@@ -167,7 +167,9 @@ impl OsmiumEngine {
             
             let mesh = Mesh::init(
                 vertices, 
-                None
+                Some(
+                    vec![0, 1, 2]
+                )
             );
 
             let mesh_handle = asset_manager.add_mesh(mesh);

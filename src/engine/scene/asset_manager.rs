@@ -9,7 +9,7 @@ use shaderc::ShaderKind;
 use vulkano::{
     command_buffer::allocator::StandardCommandBufferAllocator, 
     device::Queue, 
-    memory::allocator::MemoryAllocator, shader::ShaderModule
+    shader::ShaderModule
 };
 
 use crate::engine::{
@@ -245,7 +245,6 @@ impl AssetManager {
         buffer_manager: &BufferManager,
         command_buffer_allocator: &StandardCommandBufferAllocator,
         queue: Arc<Queue>,
-        memory_allocator: Arc<dyn MemoryAllocator>,
     ) {
         let start = self.materials.len();
 
@@ -311,9 +310,6 @@ impl AssetManager {
                 &config,
                 material_assets,
                 buffer_manager,
-                command_buffer_allocator,
-                queue.clone(),
-                memory_allocator.clone(),
             );
 
             self.materials.add(material);

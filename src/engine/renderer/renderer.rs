@@ -117,6 +117,8 @@ impl Renderer {
 
         let image_manager = ImageManager::init(
             vulkan_context.get_memory_allocator(),
+            &vulkan_context.command_buffer_allocator,
+            vulkan_context.get_queue()
         );
 
         let shader_manager = Arc::new(
@@ -160,17 +162,12 @@ impl Renderer {
             swapchain_manager.get_swapchain_images().len()
         );
 
-        for mesh in assets.meshes.iter_mut() {
-            mesh.create_buffers(&buffer_manager);
-        }
-
         assets.create_materials(
             &shader_manager, 
             &image_manager, 
             &buffer_manager, 
             &vulkan_context.command_buffer_allocator, 
             vulkan_context.queue.clone(), 
-            vulkan_context.memory_allocator.clone()
         );
 
         let shaders = &assets.shaders;
@@ -186,7 +183,24 @@ impl Renderer {
                 config.enable_depth,
                 shaders,
                 textures,
-                &descriptor_manager
+                &descriptor_manager,
+                &image_manager
+            );
+        }
+
+        let default_pipeline: Arc<GraphicsPipeline> = materials
+            .iter()
+            .next()
+            .unwrap()
+            .get_pipeline();
+
+        for mesh in assets.meshes.iter_mut() {
+            mesh.create_gpu_resources(
+                textures, 
+                &buffer_manager, 
+                default_pipeline.clone(), 
+                descriptor_manager.clone(), 
+                &image_manager
             );
         }
 
@@ -262,11 +276,10 @@ impl Renderer {
                 self.swapchain_manager.enable_depth(),
                 shaders,
                 textures,
-                &self.descriptor_manager
+                &self.descriptor_manager,
+                &self.image_manager
             );
         }
-
-        // let render_items = self.scene.get_render_items();
 
         self.command_buffers = Self::create_command_buffers(
             &self.vulkan_context,
@@ -473,7 +486,8 @@ impl Renderer {
                     0, 
                     (
                         global_descriptor_set.clone(),
-                        material.get_descriptor_set()
+                        material.get_descriptor_set(),
+                        mesh.get_descriptor_set()
                     )
                 )
                 .unwrap()

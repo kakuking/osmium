@@ -17,11 +17,15 @@ layout(push_constant) uniform PushConstants {
     mat4 model;
 } pc;
 
+layout(set = 2, binding = 0) uniform sampler2D heightmap;
+
 void main() {
     v_world_pos = position;
     v_uv = vec2(uv.x, 1.0 - uv.y);
 
-    vec4 pp = camera.view_proj * vec4(position, 1.0);
+    float height = texture(heightmap, v_uv).r;
 
-    gl_Position = camera.view_proj * pc.model * vec4(position, 1.0);
+    vec3 heightmap_position = position + vec3(0.0, height, 0.0);
+
+    gl_Position = camera.view_proj * pc.model * vec4(heightmap_position, 1.0);
 }
