@@ -29,6 +29,7 @@ Now approahcing new horizons and feeling my way through it
 - [x] Add more camera types (orthographic and perspective)
 - [x] Add proper descriptors for meshes (for height maps)
 - [x] Add loading mesh from file via mesh config
+- [x] Added height mapping
 - [ ] Finish adding global descriptors (camera, lighting, etc)
 - [ ] Add shadow mapping
 - [ ] Add collision checking stuff
