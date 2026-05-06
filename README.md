@@ -26,6 +26,7 @@ Now approahcing new horizons and feeling my way through it
 - [x] Fix the physics issue (temporary fix by locking rotation on x and y axes)
 - [x] Added Proper global descriptors (only camera for now)
 - [x] Removed GLAM and reverted it to just use nalgebra
+- [x] Add more camera types (orthographic and perspective)
 - [ ] Finish adding global descriptors (camera, lighting, etc)
 - [ ] Add shadow mapping
 - [ ] Add collision checking stuff

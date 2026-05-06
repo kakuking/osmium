@@ -7,7 +7,7 @@ use winit::{
 
 use crate::engine::{
     config::{
-        material_config::MaterialConfig, renderer_config::RendererConfig
+        camera_config::CameraConfig, material_config::MaterialConfig, renderer_config::RendererConfig
     }, ecs::{
         components::{
             camera::Camera, 
@@ -295,7 +295,10 @@ impl OsmiumEngine {
 
             coordinator.add_component(
                 entity, 
-                Camera::new(true)
+                Camera::new(
+                    CameraConfig::new(true),
+                    true
+                )
             );
 
             coordinator.add_component(
