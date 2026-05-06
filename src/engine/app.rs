@@ -7,7 +7,7 @@ use winit::{
 
 use crate::engine::{
     config::{
-        camera_config::CameraConfig, material_config::MaterialConfig, renderer_config::RendererConfig
+        camera_config::CameraConfig, material_config::MaterialConfig, mesh_config::MeshConfig, renderer_config::RendererConfig
     }, ecs::{
         components::{
             camera::Camera, 
@@ -157,22 +157,16 @@ impl OsmiumEngine {
         let material_config = MaterialConfig::new();
         let material_handle = asset_manager.add_material_config(material_config);
 
-        // static triangle
+        // Giant and Menacing cube in the background
         {
-            let vertices = vec![
-                OsmiumVertex {position: [-0.8, -0.5, 0.1], uv: [0.0, 0.0]},
-                OsmiumVertex {position: [ -0.3,  0.5, 0.1], uv: [0.0, 1.0]},
-                OsmiumVertex {position: [ 0.2, -0.5, 0.1], uv: [1.0, 0.0]},
-            ];
-            
+            let mesh_config = MeshConfig::new();
             let mesh = Mesh::init(
-                vertices, 
-                Some(
-                    vec![0, 1, 2]
-                )
+                &mesh_config
             );
-
             let mesh_handle = asset_manager.add_mesh(mesh);
+            
+            let mut transform = Transform::new();
+            transform.position.z = -2.0;
 
             let entity = coordinator.create_entity();
 
@@ -186,19 +180,19 @@ impl OsmiumEngine {
 
             coordinator.add_component(
                 entity, 
-                Transform::new()
+                transform
             );
         }
 
         // falling rectangle
         {
             let vertices = vec![
-                OsmiumVertex {position: [-0.5, -0.5, 0.2], uv: [0.0, 0.0]},
-                OsmiumVertex {position: [ 0.5, -0.5, 0.2], uv: [1.0, 0.0]},
-                OsmiumVertex {position: [ -0.5,  0.5, 0.2], uv: [0.0, 1.0]},
-                OsmiumVertex {position: [ 0.5, -0.5, 0.2], uv: [1.0, 0.0]},
-                OsmiumVertex {position: [ -0.5,  0.5, 0.2], uv: [0.0, 1.0]},
-                OsmiumVertex {position: [ 0.5,  0.5, 0.2], uv: [1.0, 1.0]},
+                OsmiumVertex::init_pos_uv([-0.5, -0.5, 0.2], [0.0, 0.0]),
+                OsmiumVertex::init_pos_uv([ 0.5, -0.5, 0.2], [1.0, 0.0]),
+                OsmiumVertex::init_pos_uv([ -0.5,  0.5, 0.2], [0.0, 1.0]),
+                OsmiumVertex::init_pos_uv([ 0.5, -0.5, 0.2], [1.0, 0.0]),
+                OsmiumVertex::init_pos_uv([ -0.5,  0.5, 0.2], [0.0, 1.0]),
+                OsmiumVertex::init_pos_uv([ 0.5,  0.5, 0.2], [1.0, 1.0]),
             ];
 
             let collider = PhysicsBodyConfig::from_vertices(
@@ -207,7 +201,7 @@ impl OsmiumEngine {
                 PhysicsBodyType::Dynamic
             );
 
-            let mesh = Mesh::init(
+            let mesh = Mesh::init_direct(
                 vertices, 
                 None
             );
@@ -238,12 +232,12 @@ impl OsmiumEngine {
         // Static floor
         {
             let vertices = vec![
-                OsmiumVertex {position: [-0.8, -0.05, 0.2], uv: [0.0, 0.0]},
-                OsmiumVertex {position: [ 0.8, -0.05, 0.2], uv: [1.0, 0.0]},
-                OsmiumVertex {position: [ -0.8,  0.15, 0.2], uv: [0.0, 1.0]},
-                OsmiumVertex {position: [ 0.8, -0.05, 0.2], uv: [1.0, 0.0]},
-                OsmiumVertex {position: [ -0.8,  0.15, 0.2], uv: [0.0, 1.0]},
-                OsmiumVertex {position: [ 0.8,  0.15, 0.2], uv: [1.0, 1.0]},
+                OsmiumVertex::init_pos_uv([-0.8, -0.05, 0.2], [0.0, 0.0]),
+                OsmiumVertex::init_pos_uv([ 0.8, -0.05, 0.2], [1.0, 0.0]),
+                OsmiumVertex::init_pos_uv([ -0.8,  0.15, 0.2], [0.0, 1.0]),
+                OsmiumVertex::init_pos_uv([ 0.8, -0.05, 0.2], [1.0, 0.0]),
+                OsmiumVertex::init_pos_uv([ -0.8,  0.15, 0.2], [0.0, 1.0]),
+                OsmiumVertex::init_pos_uv([ 0.8,  0.15, 0.2], [1.0, 1.0]),
             ];
 
             let collider = PhysicsBodyConfig::from_vertices(
@@ -252,7 +246,7 @@ impl OsmiumEngine {
                 PhysicsBodyType::Fixed
             );
             
-            let mesh = Mesh::init(
+            let mesh = Mesh::init_direct(
                 vertices, 
                 None
             );

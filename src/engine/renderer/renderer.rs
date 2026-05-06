@@ -196,11 +196,12 @@ impl Renderer {
 
         for mesh in assets.meshes.iter_mut() {
             mesh.create_gpu_resources(
-                textures, 
                 &buffer_manager, 
                 default_pipeline.clone(), 
                 descriptor_manager.clone(), 
-                &image_manager
+                &image_manager,
+                &vulkan_context.command_buffer_allocator,
+                vulkan_context.get_queue()
             );
         }
 

@@ -5,19 +5,27 @@ use vulkano::{
         BufferContents, 
         BufferUsage, 
         Subbuffer
-    }, descriptor_set::PersistentDescriptorSet, memory::allocator::MemoryTypeFilter, pipeline::{GraphicsPipeline, graphics::vertex_input::Vertex}
+    }, command_buffer::allocator::{
+        StandardCommandBufferAllocator
+    }, 
+    descriptor_set::PersistentDescriptorSet, 
+    device::Queue, 
+    memory::allocator::MemoryTypeFilter, 
+    pipeline::{
+        GraphicsPipeline, 
+        graphics::vertex_input::Vertex
+    }
 };
 
 use crate::engine::{
-    renderer::{
+    config::mesh_config::MeshConfig, renderer::{
         buffer_manager::BufferManager, 
         descriptor_manager::DescriptorManager, 
         image_manager::{
             ImageManager, 
             Texture
         }
-    }, 
-    scene::asset_manager::{AssetStorage, Handle}
+    }
 };
 
 #[derive(BufferContents, Vertex)]
@@ -25,10 +33,43 @@ use crate::engine::{
 pub struct OsmiumVertex {
     #[format(R32G32B32_SFLOAT)]
     pub position: [f32; 3],
-    // #[format(R32G32B32_SFLOAT)]
-    // pub normal: [f32; 3],
+    #[format(R32G32B32_SFLOAT)]
+    pub normal: [f32; 3],
     #[format(R32G32_SFLOAT)]
     pub uv: [f32; 2],
+}
+
+impl OsmiumVertex {
+    pub fn init(
+        position: [f32; 3], 
+        normal: [f32; 3], 
+        uv: [f32; 2]
+    ) -> Self {
+        Self {
+            position,
+            normal,
+            uv
+        }
+    }
+
+    pub fn init_pos_uv(
+        position: [f32; 3], 
+        uv: [f32; 2]
+    ) -> Self {
+        Self {
+            position,
+            normal: [0.0, 0.0, 1.0],
+            uv
+        }
+    }
+
+    pub fn init_pos(position: [f32; 3]) -> Self {
+        Self {
+            position,
+            normal: [0.0, 0.0, 1.0],
+            uv: [0.0, 0.0]
+        }
+    }
 }
 
 pub struct Mesh {
@@ -40,14 +81,90 @@ pub struct Mesh {
     pub num_indices: u32,
     pub num_vertices: u32,
 
-    height_map_texture: Option<Handle<Arc<Texture>>>,
+    height_map_texture: Option<Arc<Texture>>,   // not through the asset manager to keep the mesh compact
     descriptor_set: Option<Arc<PersistentDescriptorSet>>,
 
-    initialized: bool
+    config: MeshConfig,
+    initialized: bool,
 }
 
 impl Mesh {
     pub fn init(
+        config: &MeshConfig
+    ) -> Self {
+        let load_options = tobj::LoadOptions {
+            triangulate: true,
+            single_index: true,
+            ..Default::default()
+        };
+
+        let (models, _materials) = tobj::load_obj(
+            &config.filepath, 
+            &load_options
+        )
+            .map_err(|e| format!("Failed to load OBJ: {e}"))
+            .unwrap();
+
+        let mut vertices = Vec::new();
+        let mut indices = Vec::new();
+        let mut vertex_offset: u32 = 0u32;
+
+        for model in models {
+            let mesh = model.mesh;
+
+            for i in 0..mesh.positions.len() / 3 {
+                let position = [
+                    mesh.positions[i * 3],
+                    mesh.positions[i * 3 + 1],
+                    mesh.positions[i * 3 + 2],
+                ];
+
+                let normal = if !mesh.normals.is_empty() {
+                    [
+                        mesh.normals[i * 3],
+                        mesh.normals[i * 3 + 1],
+                        mesh.normals[i * 3 + 2],
+                    ]
+                } else {
+                    [0.0, 0.0, 1.0]
+                };
+
+                let uv = if !mesh.texcoords.is_empty() {
+                    [
+                        mesh.texcoords[i * 2],
+                        mesh.texcoords[i * 2 + 1],
+                    ]
+                } else {
+                    [0.0, 0.0]
+                };
+
+                vertices.push(OsmiumVertex::init(position, normal, uv));
+            }
+
+            indices.extend(mesh.indices.iter().map(|i| i + vertex_offset));
+            vertex_offset = vertices.len() as u32;
+        }
+
+        let num_vertices = vertices.len() as u32;
+        let num_indices = indices.len() as u32;
+
+        Self {
+            vertex_buffer: None,
+            index_buffer: None,
+
+            vertices,
+            indices: Some(indices),
+            num_indices,
+            num_vertices,
+
+            height_map_texture: None,
+            descriptor_set: None,
+            initialized: false,
+            config: config.clone()
+        }
+    }
+
+    pub fn init_direct(
         vertices: Vec<OsmiumVertex>,
         indices: Option<Vec<u32>>,
     ) -> Self {
@@ -68,17 +185,20 @@ impl Mesh {
 
             height_map_texture: None,
             descriptor_set: None,
-            initialized: false
+            initialized: false,
+
+            config: MeshConfig::new()
         }
     }
 
     pub fn create_gpu_resources(
         &mut self,
-        textures: &AssetStorage<Arc<Texture>>,
         buffer_manager: &BufferManager,
         pipeline: Arc<GraphicsPipeline>,
         descriptor_manager: Arc<DescriptorManager>,
         image_manager: &ImageManager,
+        command_buffer_allocator: &StandardCommandBufferAllocator,
+        queue: Arc<Queue>,
     ) {
         let vertex_buffer = buffer_manager.create_buffer_from_iter(
             std::mem::take(&mut self.vertices), 
@@ -108,9 +228,24 @@ impl Mesh {
 
         let mut writes = Vec::new();
 
-        let height = self.height_map_texture
-            .map(|handle| textures.get(handle).clone())
-            .unwrap_or(image_manager.default_textures.black.clone());
+        let height = match &self.height_map_texture {
+            Some(texture) => texture.clone(),
+            None => {
+                match &self.config.heightmap {
+                    Some(path) => {
+                        let texture = image_manager.load_texture(
+                            path, 
+                            command_buffer_allocator, 
+                            queue.clone()
+                        );
+
+                        self.height_map_texture = Some(texture.clone());
+                        texture
+                    },
+                    None => image_manager.default_textures.black.clone()
+                }
+            }
+        };
 
         descriptor_manager.add_image_view_sampler(
             &mut writes, 

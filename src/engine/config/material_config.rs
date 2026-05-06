@@ -39,7 +39,7 @@ pub struct MaterialConfig {
 impl MaterialConfig {
     pub fn new() -> Self {
         Self {
-            name: "default_texture".into(),
+            name: "default".into(),
             vertex_shader: "./shaders/vertex.glsl".into(),
             fragment_shader: "./shaders/fragment.glsl".into(),
             params: MaterialParams {

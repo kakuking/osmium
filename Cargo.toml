@@ -13,6 +13,7 @@ serde = { version = "1.0", features = ["derive"] }
 toml = "0.8"
 rapier2d = "0.29"
 rapier3d = "0.29"
+tobj = "4"
 
 # For VUlkano optimization
 [profile.dev]

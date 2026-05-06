@@ -28,13 +28,13 @@ Now approahcing new horizons and feeling my way through it
 - [x] Removed GLAM and reverted it to just use nalgebra
 - [x] Add more camera types (orthographic and perspective)
 - [x] Add proper descriptors for meshes (for height maps)
-- [ ] Add loading mesh from file via mesh config
+- [x] Add loading mesh from file via mesh config
 - [ ] Finish adding global descriptors (camera, lighting, etc)
 - [ ] Add shadow mapping
 - [ ] Add collision checking stuff
 - [ ] Add cascading shadow mapping?
 - [ ] Add better event handling
 - [ ] Add Render Graph \*\*\*\*\*\*
-- [ ] and then ...
+- [ ] and then...
 
 \* -> Mayhaps
