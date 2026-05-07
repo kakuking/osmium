@@ -58,7 +58,9 @@ pub struct RendererConfig {
     pub target_fps: u32,
     pub print_fps: bool,
 
-    pub two_d_physics: bool
+    pub two_d_physics: bool,
+
+    pub shadow_vertex_shader: Option<String>
 }
 
 fn default_gpu_priority() -> Vec<GpuTypeConfig> {
@@ -80,7 +82,8 @@ impl Default for RendererConfig {
             window_config: WindowConfig::default(),
             target_fps: 60,
             print_fps: true,
-            two_d_physics: true
+            two_d_physics: true,
+            shadow_vertex_shader: None
         }
     }
 }
@@ -102,7 +105,8 @@ impl RendererConfig {
             window_config: WindowConfig::new(),
             target_fps: 60,
             print_fps: true,
-            two_d_physics: true
+            two_d_physics: true,
+            shadow_vertex_shader: Some("./shaders/shadow_vertex.glsl".into())
         }
     }
 

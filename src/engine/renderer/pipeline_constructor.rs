@@ -19,7 +19,7 @@ use vulkano::{
                 DepthStencilState
             }, 
             input_assembly::InputAssemblyState, multisample::MultisampleState, 
-            rasterization::RasterizationState, 
+            rasterization::{DepthBiasState, RasterizationState}, 
             vertex_input::{
                 Vertex, 
                 VertexDefinition
@@ -115,5 +115,75 @@ impl PipelineConstructor {
                 ..GraphicsPipelineCreateInfo::layout(layout)
             },
         ).unwrap()
+    }
+
+    pub fn get_shadow_pipeline<V>(
+        device: Arc<Device>,
+        vs: Arc<ShaderModule>,
+        render_pass: Arc<RenderPass>,
+        shadow_extent: [u32; 3],
+    ) -> Arc<GraphicsPipeline>
+    where
+        V: BufferContents + Vertex,
+    {
+        let vs = vs.entry_point("main").unwrap();
+
+        let vertex_input_state = V::per_vertex()
+            .definition(&vs.info().input_interface)
+            .unwrap();
+
+        let stages = [PipelineShaderStageCreateInfo::new(vs)];
+
+        let layout = PipelineLayout::new(
+            device.clone(),
+            PipelineDescriptorSetLayoutCreateInfo::from_stages(&stages)
+                .into_pipeline_layout_create_info(device.clone())
+                .unwrap(),
+        )
+        .unwrap();
+
+        let subpass = Subpass::from(render_pass.clone(), 0).unwrap();
+
+        let viewport = Viewport {
+            offset: [0.0, 0.0],
+            extent: [shadow_extent[0] as f32, shadow_extent[1] as f32],
+            depth_range: 0.0..=1.0,
+        };
+
+        GraphicsPipeline::new(
+            device.clone(),
+            None,
+            GraphicsPipelineCreateInfo {
+                stages: stages.into_iter().collect(),
+                vertex_input_state: Some(vertex_input_state),
+                input_assembly_state: Some(InputAssemblyState::default()),
+                viewport_state: Some(ViewportState {
+                    viewports: [viewport].into_iter().collect(),
+                    ..Default::default()
+                }),
+                rasterization_state: Some(RasterizationState{
+                    depth_bias: Some(
+                        DepthBiasState {
+                            constant_factor: 1.25,
+                            clamp: 0.0,
+                            slope_factor: 1.75,
+                        }
+                    ),
+                    ..Default::default()
+                }),
+                multisample_state: Some(MultisampleState {
+                    rasterization_samples: SampleCount::Sample1,
+                    ..Default::default()
+                }),
+                color_blend_state: None,
+                depth_stencil_state: Some(DepthStencilState {
+                    depth: Some(DepthState::simple()),
+                    ..Default::default()
+                }),
+                subpass: Some(subpass.into()),
+                ..GraphicsPipelineCreateInfo::layout(layout)
+            },
+        )
+        .unwrap()
     }
 }

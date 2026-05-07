@@ -3,7 +3,7 @@ use std::{
     collections::HashSet
 };
 
-use nalgebra::Vector3;
+use nalgebra::{Unit, UnitQuaternion, Vector3};
 use winit::event::VirtualKeyCode;
 
 use crate::engine::ecs::{
@@ -46,9 +46,9 @@ impl SystemTrait for UserControllerSystem {
         };
 
         let direction = {
-            let x = if coordinator.events().key_pressed(VirtualKeyCode::Left) {
+            let x = if coordinator.events().key_pressed(VirtualKeyCode::A) {
                 -1.0
-            } else if coordinator.events().key_pressed(VirtualKeyCode::Right) { 
+            } else if coordinator.events().key_pressed(VirtualKeyCode::D) { 
                 1.0 
             } else {
                 0.0
@@ -62,20 +62,45 @@ impl SystemTrait for UserControllerSystem {
                 0.0
             };
 
-            Vector3::new(x, y, 0.0)
+            let z = if coordinator.events().key_pressed(VirtualKeyCode::S) {
+                -1.0
+            } else if coordinator.events().key_pressed(VirtualKeyCode::W) { 
+                1.0 
+            } else {
+                0.0
+            };
+
+            Vector3::new(x, y, z)
+        };
+
+        let rotation_speed = 2.0;
+
+        let yaw = if coordinator.events().key_pressed(VirtualKeyCode::Left) {
+            rotation_speed * dt
+        } else if coordinator.events().key_pressed(VirtualKeyCode::Right) {
+            -rotation_speed * dt
+        } else {
+            0.0
         };
 
         {
             let transform = coordinator.get_component_mut::<Transform>(entity);
             let delta = direction.component_mul(&translation) * dt;
             
-            if delta == Vector3::zeros() {
-                return;
+            if delta != Vector3::zeros() {
+                transform.position += direction.component_mul(&translation) * dt;
+                transform.dirty = true;
             }
 
-            transform.position += direction.component_mul(&translation) * dt;
+            if yaw != 0.0 {
+                let rotation = UnitQuaternion::from_axis_angle(
+                    &Unit::new_normalize(Vector3::y()),
+                    yaw,
+                );
 
-            transform.dirty = true;
+                transform.rotation = rotation * transform.rotation;
+                transform.dirty = true;
+            }
         }
     }
 

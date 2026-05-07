@@ -61,7 +61,7 @@ impl ShaderStorage {
         }
     }
 
-    pub fn load(
+    pub unsafe fn load(
         &mut self,
         path: impl Into<PathBuf>,
         kind: ShaderKindKey,
@@ -223,13 +223,15 @@ impl AssetManager {
         self.textures.add_with_path(path, texture)
     }
 
-    pub fn load_shader(
+    pub unsafe fn load_shader(
         &mut self,
         path: impl Into<PathBuf>,
         kind: ShaderKindKey,
         shader_manager: &ShaderManager,
     ) -> Handle<Arc<ShaderModule>> {
-        self.shaders.load(path, kind, shader_manager)
+        unsafe {
+            self.shaders.load(path, kind, shader_manager)
+        }
     }
 
     pub fn add_material_config(&mut self, asset: MaterialConfig) -> Handle<Material> {
@@ -238,7 +240,7 @@ impl AssetManager {
         handle
     }
 
-    pub fn create_materials(
+    pub unsafe fn create_materials(
         &mut self, 
         shader_manager: &ShaderManager,
         image_manager: &ImageManager,
@@ -257,17 +259,21 @@ impl AssetManager {
 
         for config in configs {
             let material_assets = MaterialAssets {
-                vertex_shader: self.load_shader(
-                    &config.vertex_shader,
-                    ShaderKindKey::Vertex,
-                    shader_manager,
-                ),
+                vertex_shader: unsafe {
+                    self.load_shader(
+                        &config.vertex_shader,
+                        ShaderKindKey::Vertex,
+                        shader_manager,
+                    )
+                },
 
-                fragment_shader: self.load_shader(
-                    &config.fragment_shader,
-                    ShaderKindKey::Fragment,
-                    shader_manager,
-                ),
+                fragment_shader: unsafe {
+                    self.load_shader(
+                        &config.fragment_shader,
+                        ShaderKindKey::Fragment,
+                        shader_manager,
+                    )
+                },
 
                 albedo_texture: config.textures.albedo.as_ref().map(|path| {
                     self.load_texture(

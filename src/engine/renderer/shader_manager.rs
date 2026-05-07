@@ -29,12 +29,19 @@ impl ShaderManager {
         let src = fs::read_to_string(filepath)
             .expect("Failed to read glsl file");
 
+        let mut options = shaderc::CompileOptions::new()
+            .unwrap();
+
+        options.set_optimization_level(
+            shaderc::OptimizationLevel::Zero
+        );
+
         let artifact = self.compiler.compile_into_spirv(
             &src, 
             kind, 
             filepath, 
             "main", 
-            None
+            Some(&options),
         ).expect("Failed to compile shader");
 
         unsafe {

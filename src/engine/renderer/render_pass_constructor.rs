@@ -8,7 +8,8 @@ use vulkano::{
         Undefined,
         ColorAttachmentOptimal,
         PresentSrc,
-        DepthStencilAttachmentOptimal
+        DepthStencilAttachmentOptimal,
+        DepthStencilReadOnlyOptimal
     }
 };
 
@@ -29,6 +30,30 @@ impl RenderPassConstructor {
             (true, 1) => Self::color_depth(config, device, image_format, depth_format),
             (true, _) => Self::color_depth_msaa(config, device, image_format, depth_format),
         }
+    }
+
+    pub fn create_shadow_render_pass(
+        device: Arc<Device>,
+        depth_format: Format,
+    ) -> Arc<RenderPass> {
+        vulkano::single_pass_renderpass!(
+            device,
+            attachments: {
+                depth: {
+                    format: depth_format,
+                    samples: 1,
+                    load_op: Clear,
+                    store_op: Store,
+                    initial_layout: Undefined,
+                    final_layout: DepthStencilReadOnlyOptimal,
+                },
+            },
+            pass: {
+                color: [],
+                depth_stencil: {depth},
+            },
+        )
+        .unwrap()
     }
 
     fn color(

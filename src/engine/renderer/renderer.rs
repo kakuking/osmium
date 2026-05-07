@@ -32,18 +32,11 @@ use vulkano::{
 };
 
 use crate::engine::{
-    config::renderer_config::RendererConfig, ecs::components::renderable::ObjectPushConstants, 
+    config::renderer_config::RendererConfig, ecs::components::renderable::{ColorPushConstants, ShadowPushConstants}, 
     renderer::{
-        buffer_manager::BufferManager, 
-        descriptor_manager::DescriptorManager, 
-        global_resources::{GlobalResources, RenderGlobals}, 
-        image_manager::ImageManager, 
-        render_pass_constructor::RenderPassConstructor, 
-        shader_manager::ShaderManager, 
-        swapchain_manager::SwapchainManager, 
-        vulkan_context::VulkanContext
+        buffer_manager::BufferManager, descriptor_manager::DescriptorManager, global_resources::{GlobalResources, RenderGlobals}, image_manager::ImageManager, render_pass_constructor::RenderPassConstructor, shader_manager::ShaderManager, shadow_manager::ShadowManager, swapchain_manager::SwapchainManager, vulkan_context::VulkanContext
     }, scene::{
-        asset_manager::AssetManager, render_item::RenderItem
+        asset_manager::{AssetManager, ShaderKindKey}, render_item::RenderItem
     }, 
     window::window_manager::WindowManager
 };
@@ -91,17 +84,15 @@ pub struct Renderer {
     
     frame_state: FrameState,
     swapchain_manager: SwapchainManager,
-    command_buffers: Vec<Arc<PrimaryAutoCommandBuffer>>,
+    shadow_manager: ShadowManager,
 
-    // only 1 as all materials have same set 0
-    global_resources: GlobalResources 
+    global_resources: GlobalResources // only 1 as all materials have same set 0
 }
 
 impl Renderer {
-    pub fn init(
+    pub unsafe fn init(
         window_manager: &mut WindowManager,
         config: &RendererConfig,
-        render_items: &Vec<RenderItem>,
         assets: &mut AssetManager,
     ) -> Renderer
     {
@@ -148,6 +139,11 @@ impl Renderer {
             depth_format
         );
 
+        let shadow_pass = RenderPassConstructor::create_shadow_render_pass(
+            vulkan_context.get_device(), 
+            depth_format
+        );
+
         let swapchain_manager = SwapchainManager::new(
             &config,
             &vulkan_context,
@@ -162,13 +158,26 @@ impl Renderer {
             swapchain_manager.get_swapchain_images().len()
         );
 
-        assets.create_materials(
-            &shader_manager, 
-            &image_manager, 
-            &buffer_manager, 
-            &vulkan_context.command_buffer_allocator, 
-            vulkan_context.queue.clone(), 
-        );
+        unsafe {
+            assets.create_materials(
+                &shader_manager, 
+                &image_manager, 
+                &buffer_manager, 
+                &vulkan_context.command_buffer_allocator, 
+                vulkan_context.queue.clone(), 
+            )
+        };
+
+        let shadow_vertex_shader = unsafe {
+            assets.load_shader(
+                match &config.shadow_vertex_shader {
+                    Some(p) => p.clone(),
+                    None => "./shaders/shadow_vertex.glsl".into()
+                }, 
+                ShaderKindKey::Vertex, 
+                &shader_manager
+            )
+        };
 
         let shaders = &assets.shaders;
         let textures = &assets.textures;
@@ -205,21 +214,22 @@ impl Renderer {
             );
         }
 
+        let shadow_manager = ShadowManager::init(
+            &vulkan_context, 
+            shadow_pass, 
+            depth_format, 
+            &image_manager,
+            shadow_vertex_shader,
+            &assets.shaders
+        );
+
         let global_resources =  GlobalResources::new(
             &buffer_manager,
             &descriptor_manager,
             materials.iter().next().unwrap().get_pipeline(),
-            swapchain_manager.get_swapchain_images().len()
-        );
-
-        let command_buffers: Vec<Arc<PrimaryAutoCommandBuffer>> = Self::create_command_buffers(
-            &vulkan_context, 
-            swapchain_manager.enable_depth(),
-            config.render_pass.samples,
-            swapchain_manager.get_framebuffers(), 
-            render_items,
-            assets,
-            &global_resources
+            swapchain_manager.get_swapchain_images().len(),
+            &shadow_manager.views,
+            &shadow_manager.samplers
         );
 
         Self {
@@ -230,9 +240,9 @@ impl Renderer {
             descriptor_manager,
             buffer_manager,
             image_manager,
-            command_buffers,
 
             swapchain_manager,
+            shadow_manager,
             frame_state,
             
             global_resources,
@@ -251,7 +261,6 @@ impl Renderer {
         &mut self, 
         window_manager: &WindowManager,
         assets: &mut AssetManager,
-        render_items: &Vec<RenderItem>,
     ) {
         let recreated = self.swapchain_manager.recreate(
             &self.vulkan_context,
@@ -282,16 +291,6 @@ impl Renderer {
             );
         }
 
-        self.command_buffers = Self::create_command_buffers(
-            &self.vulkan_context,
-            self.swapchain_manager.enable_depth(),
-            self.swapchain_manager.get_samples() as u32,
-            self.swapchain_manager.get_framebuffers(),
-            &render_items,
-            assets,
-            &self.global_resources
-        );
-
         self.frame_state.fences = vec![None; self.swapchain_manager.get_swapchain_images().len()];
         self.frame_state.previous_fence_i = 0;
     }
@@ -307,7 +306,6 @@ impl Renderer {
             self.recreate_swapchain(
                 window_manager,
                 assets,
-                render_items
             );
         }
 
@@ -358,7 +356,9 @@ impl Renderer {
             self.swapchain_manager.get_framebuffers(), 
             render_items, 
             assets,
-            &self.global_resources
+            &self.global_resources,
+            &self.shadow_manager,
+            globals
         );
 
         let future = previous_future
@@ -398,7 +398,9 @@ impl Renderer {
         framebuffers: &Vec<Arc<Framebuffer>>,
         render_items: &Vec<RenderItem>,
         assets: &AssetManager,
-        global_resources: &GlobalResources
+        global_resources: &GlobalResources,
+        shadow_manager: &ShadowManager,
+        globals: &RenderGlobals,
     ) -> Vec<Arc<PrimaryAutoCommandBuffer>> {
         framebuffers
             .iter()
@@ -411,7 +413,9 @@ impl Renderer {
                     framebuffer.clone(), 
                     render_items,
                     assets,
-                    global_resources.descriptor_set(frame_i)
+                    global_resources.descriptor_set(frame_i),
+                    shadow_manager,
+                    globals
                 )
             })
             .collect()
@@ -424,9 +428,11 @@ impl Renderer {
         framebuffer: Arc<Framebuffer>,
         render_items: &Vec<RenderItem>,
         assets: &AssetManager,
-        global_descriptor_set: Arc<PersistentDescriptorSet>
+        global_descriptor_set: Arc<PersistentDescriptorSet>,
+        shadow_manager: &ShadowManager,
+        globals: &RenderGlobals,
     ) -> Arc<PrimaryAutoCommandBuffer> {
-        let clear_color = [0.5, 0.5, 0.5, 1.0];
+        let clear_color = [1.0, 1.0, 1.0, 1.0];
 
         let clear_values: Vec<Option<ClearValue>> = match (enable_depth, msaa) {
             (false, 1) => {
@@ -459,6 +465,66 @@ impl Renderer {
             CommandBufferUsage::MultipleSubmit
         )
         .unwrap();
+
+        if globals.lights.len() > 0 {
+            for (idx, light) in globals.lights.iter().enumerate() {
+                builder.begin_render_pass(
+                    RenderPassBeginInfo {
+                        clear_values: vec![Some(1.0f32.into())],
+                        ..RenderPassBeginInfo::framebuffer(shadow_manager.get_framebuffers(idx))
+                    }, 
+                    SubpassBeginInfo {
+                        contents: SubpassContents::Inline,
+                        ..Default::default()
+                    }
+                ).unwrap();
+
+                for item in render_items {
+                    let mesh = item.get_mesh(assets);
+
+                    let pipeline: Arc<GraphicsPipeline> = shadow_manager.get_pipeline();
+
+                    builder
+                        .bind_pipeline_graphics(pipeline.clone())
+                        .unwrap()
+                        .bind_descriptor_sets(
+                            PipelineBindPoint::Graphics, 
+                            pipeline.layout().clone(), 
+                            2, 
+                            mesh.get_descriptor_set()
+                        )
+                        .unwrap()
+                        .push_constants(
+                            pipeline.layout().clone(), 
+                            0, 
+                        ShadowPushConstants {
+                            model: item.model_matrix,
+                            view_proj: light.view_proj
+                        })
+                        .unwrap()
+                        .bind_vertex_buffers(0, mesh.get_vertex_buffer())
+                        .unwrap();
+
+                    if let Some(idx_buffer) = mesh.index_buffer.clone() {
+                        builder
+                            .bind_index_buffer(
+                                IndexBuffer::from(idx_buffer)
+                            )
+                            .unwrap()
+                            .draw_indexed(mesh.get_num_indices(), 1, 0, 0, 0)
+                            .unwrap();
+                    } else {
+                        builder
+                            .draw(mesh.get_num_vertices(), 1, 0, 0)
+                            .unwrap();
+                    }
+                }
+                
+                builder
+                    .end_render_pass(SubpassEndInfo::default())
+                    .unwrap();
+            }
+        }
         
         builder.begin_render_pass(
             RenderPassBeginInfo {
@@ -495,7 +561,7 @@ impl Renderer {
                 .push_constants(
                     pipeline.layout().clone(), 
                     0, 
-                ObjectPushConstants {
+                ColorPushConstants {
                     model: item.model_matrix
                 })
                 .unwrap()

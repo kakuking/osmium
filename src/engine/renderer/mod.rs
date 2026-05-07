@@ -7,5 +7,6 @@ pub mod swapchain_manager;
 pub mod render_pass_constructor;
 pub mod pipeline_constructor;
 pub mod global_resources;
+pub mod shadow_manager;
 
 pub mod renderer;

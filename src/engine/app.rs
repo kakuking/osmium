@@ -1,5 +1,6 @@
 use std::time::{Duration, Instant};
 
+use nalgebra::{Unit, UnitQuaternion, Vector3};
 use winit::{
     event::{ElementState, Event, KeyboardInput, WindowEvent}, 
     event_loop::{ControlFlow, EventLoop},
@@ -7,23 +8,18 @@ use winit::{
 
 use crate::engine::{
     config::{
-        camera_config::CameraConfig, material_config::MaterialConfig, mesh_config::MeshConfig, renderer_config::RendererConfig
+        camera_config::CameraConfig, light_config::LightConfig, material_config::MaterialConfig, mesh_config::MeshConfig, renderer_config::RendererConfig
     }, ecs::{
         components::{
-            camera::Camera, 
-            movement_speeds::MovementSpeeds, 
-            physics::{
+            camera::Camera, light::Light, movement_speeds::MovementSpeeds, physics::{
                 PhysicsBody, 
                 PhysicsBodyConfig, 
-                PhysicsBodyType, 
                 PhysicsCollider
-            }, 
-            renderable::MeshRenderable, 
-            transform::Transform
+            }, renderable::MeshRenderable, transform::Transform
         }, coordinator::Coordinator, 
         signature::Signature, 
         systems::{
-            camera::CameraSystem, physics::PhysicsSystem, render::RenderSystem, user_controller::UserControllerSystem
+            camera::CameraSystem, light::LightSystem, physics::PhysicsSystem, render::RenderSystem, user_controller::UserControllerSystem
         }
     }, 
     renderer::renderer::Renderer, 
@@ -31,7 +27,6 @@ use crate::engine::{
         asset_manager::AssetManager, 
         mesh::{
             Mesh, 
-            OsmiumVertex
         }, 
     }, 
     window::{event_manager::EngineEvent, window_manager::WindowManager} 
@@ -62,6 +57,7 @@ impl OsmiumEngine {
         coordinator.register_component::<PhysicsBody>();
         coordinator.register_component::<PhysicsCollider>();
         coordinator.register_component::<Camera>();
+        coordinator.register_component::<Light>();
 
         {
             coordinator.register_system::<PhysicsSystem>();
@@ -125,6 +121,21 @@ impl OsmiumEngine {
             coordinator.set_system_signature::<CameraSystem>(signature);
         }
 
+        {
+            coordinator.register_system::<LightSystem>();
+
+            let mut signature = Signature::new();
+            signature.set(
+                coordinator.get_component_type::<Transform>() as usize, 
+                true
+            );
+            signature.set(
+                coordinator.get_component_type::<Light>() as usize, 
+                true
+            );
+            coordinator.set_system_signature::<LightSystem>(signature);
+        }
+
         let mut assets = Self::create_basic_scene(&mut coordinator);
 
         coordinator.initialize_systems();
@@ -134,12 +145,13 @@ impl OsmiumEngine {
             &event_loop
         );
 
-        let renderer = Renderer::init(
-            &mut window_manager,
-            &config,
-            &coordinator.get_render_items(), 
-            &mut assets
-        );
+        let renderer = unsafe {
+            Renderer::init(
+                &mut window_manager,
+                &config,
+                &mut assets
+            )
+        };
 
         Self {
             config,
@@ -159,7 +171,9 @@ impl OsmiumEngine {
 
         // Giant and Menacing cube in the background
         {
-            let mesh_config = MeshConfig::new();
+            let mut mesh_config = MeshConfig::new();
+            mesh_config.filepath = "./resources/Cube.obj".into();
+
             let mesh = Mesh::init(
                 &mesh_config
             );
@@ -183,31 +197,21 @@ impl OsmiumEngine {
                 transform
             );
         }
-
-        // falling rectangle
+        
+        // Plane below giant and menacing cube
         {
-            let vertices = vec![
-                OsmiumVertex::init_pos_uv([-0.5, -0.5, 0.2], [0.0, 0.0]),
-                OsmiumVertex::init_pos_uv([ 0.5, -0.5, 0.2], [1.0, 0.0]),
-                OsmiumVertex::init_pos_uv([ -0.5,  0.5, 0.2], [0.0, 1.0]),
-                OsmiumVertex::init_pos_uv([ 0.5, -0.5, 0.2], [1.0, 0.0]),
-                OsmiumVertex::init_pos_uv([ -0.5,  0.5, 0.2], [0.0, 1.0]),
-                OsmiumVertex::init_pos_uv([ 0.5,  0.5, 0.2], [1.0, 1.0]),
-            ];
+            let mut mesh_config = MeshConfig::new();
+            mesh_config.filepath = "./resources/Plane.obj".into();
 
-            let collider = PhysicsBodyConfig::from_vertices(
-                &vertices,
-                0.5,
-                PhysicsBodyType::Dynamic
+            let mesh = Mesh::init(
+                &mesh_config
             );
-
-            let mesh = Mesh::init_direct(
-                vertices, 
-                None
-            );
-
             let mesh_handle = asset_manager.add_mesh(mesh);
             
+            let mut transform = Transform::new();
+            transform.position.z = -2.0;
+            transform.position.y = -1.0;
+
             let entity = coordinator.create_entity();
 
             coordinator.add_component(
@@ -220,73 +224,113 @@ impl OsmiumEngine {
 
             coordinator.add_component(
                 entity, 
-                Transform::new()
-            );
-
-            coordinator.add_component(
-                entity, 
-                collider
-            );
-        }
-
-        // Static floor
-        {
-            let vertices = vec![
-                OsmiumVertex::init_pos_uv([-0.8, -0.05, 0.2], [0.0, 0.0]),
-                OsmiumVertex::init_pos_uv([ 0.8, -0.05, 0.2], [1.0, 0.0]),
-                OsmiumVertex::init_pos_uv([ -0.8,  0.15, 0.2], [0.0, 1.0]),
-                OsmiumVertex::init_pos_uv([ 0.8, -0.05, 0.2], [1.0, 0.0]),
-                OsmiumVertex::init_pos_uv([ -0.8,  0.15, 0.2], [0.0, 1.0]),
-                OsmiumVertex::init_pos_uv([ 0.8,  0.15, 0.2], [1.0, 1.0]),
-            ];
-
-            let collider = PhysicsBodyConfig::from_vertices(
-                &vertices,
-                0.5,
-                PhysicsBodyType::Fixed
-            );
-            
-            let mesh = Mesh::init_direct(
-                vertices, 
-                None
-            );
-    
-            let mesh_handle = asset_manager.add_mesh(mesh);
-    
-            let entity = coordinator.create_entity();
-            let mut transform = Transform::new();
-            transform.position.y = -1.0;
-            transform.position.z = 0.1;
-    
-            coordinator.add_component(
-                entity,
-                MeshRenderable::new(
-                    mesh_handle, 
-                    material_handle
-                ),
-            );
-    
-            coordinator.add_component(
-                entity, 
                 transform
             );
-
-            coordinator.add_component(
-                entity,
-                collider
-            );
         }
+
+        // falling rectangle
+        // {
+        //     let vertices = vec![
+        //         OsmiumVertex::init_pos_uv([-0.5, -0.5, 0.2], [0.0, 0.0]),
+        //         OsmiumVertex::init_pos_uv([ 0.5, -0.5, 0.2], [1.0, 0.0]),
+        //         OsmiumVertex::init_pos_uv([-0.5,  0.5, 0.2], [0.0, 1.0]),
+        //         OsmiumVertex::init_pos_uv([ 0.5, -0.5, 0.2], [1.0, 0.0]),
+        //         OsmiumVertex::init_pos_uv([-0.5,  0.5, 0.2], [0.0, 1.0]),
+        //         OsmiumVertex::init_pos_uv([ 0.5,  0.5, 0.2], [1.0, 1.0]),
+        //     ];
+
+        //     let collider = PhysicsBodyConfig::from_vertices(
+        //         &vertices,
+        //         0.5,
+        //         PhysicsBodyType::Dynamic
+        //     );
+
+        //     let mesh = Mesh::init_direct(
+        //         vertices, 
+        //         None
+        //     );
+
+        //     let mesh_handle = asset_manager.add_mesh(mesh);
+            
+        //     let entity = coordinator.create_entity();
+
+        //     coordinator.add_component(
+        //         entity, 
+        //         MeshRenderable::new(
+        //             mesh_handle, 
+        //             material_handle
+        //         )
+        //     );
+
+        //     coordinator.add_component(
+        //         entity, 
+        //         Transform::new()
+        //     );
+
+        //     coordinator.add_component(
+        //         entity, 
+        //         collider
+        //     );
+        // }
+
+        // // Static floor
+        // {
+        //     let vertices = vec![
+        //         OsmiumVertex::init_pos_uv([-0.8, -0.05, 0.2], [0.0, 0.0]),
+        //         OsmiumVertex::init_pos_uv([ 0.8, -0.05, 0.2], [1.0, 0.0]),
+        //         OsmiumVertex::init_pos_uv([ -0.8,  0.15, 0.2], [0.0, 1.0]),
+        //         OsmiumVertex::init_pos_uv([ 0.8, -0.05, 0.2], [1.0, 0.0]),
+        //         OsmiumVertex::init_pos_uv([ -0.8,  0.15, 0.2], [0.0, 1.0]),
+        //         OsmiumVertex::init_pos_uv([ 0.8,  0.15, 0.2], [1.0, 1.0]),
+        //     ];
+
+        //     let collider = PhysicsBodyConfig::from_vertices(
+        //         &vertices,
+        //         0.5,
+        //         PhysicsBodyType::Fixed
+        //     );
+            
+        //     let mesh = Mesh::init_direct(
+        //         vertices, 
+        //         None
+        //     );
+    
+        //     let mesh_handle = asset_manager.add_mesh(mesh);
+    
+        //     let entity = coordinator.create_entity();
+        //     let mut transform = Transform::new();
+        //     transform.position.y = -1.0;
+        //     transform.position.z = 0.1;
+    
+        //     coordinator.add_component(
+        //         entity,
+        //         MeshRenderable::new(
+        //             mesh_handle, 
+        //             material_handle
+        //         ),
+        //     );
+    
+        //     coordinator.add_component(
+        //         entity, 
+        //         transform
+        //     );
+
+        //     coordinator.add_component(
+        //         entity,
+        //         collider
+        //     );
+        // }
         
         // camera
         {
             let entity = coordinator.create_entity();
 
-            let mut camera_transform = Transform::new();
-            camera_transform.position.z = 2.0;
+            let mut transform = Transform::new();
+            transform.position.z = 2.0;
 
             coordinator.add_component(
                 entity, 
-                camera_transform
+                transform
             );
 
             coordinator.add_component(
@@ -301,6 +345,35 @@ impl OsmiumEngine {
                 entity, 
                 MovementSpeeds::new()
             );
+        }
+
+        // Directional Light
+        {
+            let entity = coordinator.create_entity();
+
+            let mut transform = Transform::new();
+
+            transform.position = Vector3::new(2.0, 2.0, 2.0);
+            transform.rotation = UnitQuaternion::from_axis_angle(
+                &Unit::new_normalize(Vector3::x()),
+                -45.0f32.to_radians()
+            ) *
+            UnitQuaternion::from_axis_angle(
+                &Unit::new_normalize(Vector3::y()),
+                45.0f32.to_radians()
+            );
+
+            coordinator.add_component(
+                entity, 
+                transform
+            );
+
+            coordinator.add_component(
+                entity,
+                Light::new(
+                    LightConfig::new(true)
+                )
+            )
         }
 
         asset_manager

@@ -12,8 +12,15 @@ use crate::engine::{
 
 #[repr(C)]
 #[derive(Debug, BufferContents, Clone, Copy)]
-pub struct ObjectPushConstants {
+pub struct ColorPushConstants {
     pub model: [f32; 16]
+}
+
+#[repr(C)]
+#[derive(Debug, BufferContents, Clone, Copy)]
+pub struct ShadowPushConstants {
+    pub model: [f32; 16],
+    pub view_proj: [f32; 16]
 }
 
 #[derive(Clone)]

@@ -1,7 +1,5 @@
 use nalgebra::{
-    Matrix4, 
-    UnitQuaternion, 
-    Vector3
+    Matrix4, UnitQuaternion, Vector3
 };
 
 #[derive(Debug, Clone, Copy)]
@@ -9,17 +7,30 @@ pub struct Transform {
     pub position: Vector3<f32>,
     pub rotation: UnitQuaternion<f32>,
     pub scale: Vector3<f32>,
+    pub model_matrix: Matrix4<f32>,
 
-    pub dirty: bool
+    pub dirty: bool,
 }
 
 impl Transform {
     pub fn new() -> Self {
+        let position = Vector3::zeros();
+        let rotation = UnitQuaternion::identity();
+        let scale = Vector3::new(1.0, 1.0, 1.0);
+
+        let translation = Matrix4::new_translation(&position);
+        let rotation_mat = rotation.to_homogeneous();
+        let scale_mat = Matrix4::new_nonuniform_scaling(&scale);
+        
+        let model_matrix = translation * rotation_mat * scale_mat;
+
         Self {
-            position: Vector3::zeros(),
-            rotation: UnitQuaternion::identity(),
-            scale: Vector3::new(1.0, 1.0, 1.0),
-            dirty: false
+            position,
+            rotation,
+            scale,
+            model_matrix,
+
+            dirty: false,
         }
     }
 

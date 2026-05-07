@@ -4,17 +4,13 @@ use crate::engine::{
         ComponentType, 
         Entity, 
         components::{
-            camera::Camera, 
-            renderable::MeshRenderable, 
-            transform::Transform
+            camera::Camera, light::Light, renderable::MeshRenderable, transform::Transform
         }, 
         signature::Signature, 
         system::SystemTrait, 
         system_manager::SystemManager, 
-        systems::{camera::CameraSystem, render::RenderSystem}, world_coordinator::WorldCoordinator
-    }, renderer::global_resources::{
-        RenderGlobals
-    }, 
+        systems::{camera::CameraSystem, light::LightSystem, render::RenderSystem}, world_coordinator::WorldCoordinator
+    }, renderer::global_resources::{LightGpuData, RenderGlobals}, 
     scene::render_item::RenderItem, 
     window::event_manager::{
         EngineEvent, 
@@ -156,6 +152,23 @@ impl Coordinator {
             .copied()
             .collect();
 
+        let light_entities: Vec<_> = self
+            .get_system::<LightSystem>()
+            .entities
+            .iter()
+            .copied()
+            .collect();
+
+        let mut lights: Vec<LightGpuData> = Vec::new();
+        for entity in light_entities {
+            let transform = *self.get_component::<Transform>(entity);
+            let light = self.get_component_mut::<Light>(entity);
+            
+            let light_gpu_data = light.get_light_data(&transform);
+
+            lights.push(light_gpu_data);
+        }
+
         for entity in camera_entities {
             let active = self.get_component_mut::<Camera>(entity).active;
             if active {
@@ -164,14 +177,13 @@ impl Coordinator {
                 let camera = self.get_component_mut::<Camera>(entity);
 
                 let camera_data = camera.get_camera_data(
-                    aspect_ratio, 
+                    aspect_ratio,
                     &transform
                 );
 
                 return RenderGlobals {
                     camera: camera_data,
-                    point_lights: Vec::new(),
-                    directional_lights: Vec::new(),
+                    lights,
                 };
             }
         }

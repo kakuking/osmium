@@ -83,4 +83,20 @@ impl DescriptorManager {
             )
         )
     }
+
+    pub fn add_image_view_sampler_array(
+        &self, 
+        writes: &mut Vec<WriteDescriptorSet>,
+        binding: u32,
+        view_sampler: Vec<(Arc<ImageView>, Arc<Sampler>)>,
+    ) 
+    {
+        writes.push(
+            WriteDescriptorSet::image_view_sampler_array(
+                binding, 
+                0,
+                view_sampler, 
+            )
+        )
+    }
 }
