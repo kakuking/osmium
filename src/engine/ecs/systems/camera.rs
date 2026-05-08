@@ -4,7 +4,13 @@ use std::{
 };
 
 use crate::engine::ecs::{
-    Entity, components::{camera::Camera, transform::Transform}, system::SystemTrait, world_coordinator::WorldCoordinator
+    Entity, 
+    components::{
+        camera::Camera, 
+        transform::Transform
+    }, 
+    system::SystemTrait, 
+    world_coordinator::WorldCoordinator
 };
 
 

@@ -18,8 +18,11 @@ use vulkano::{
                 DepthState, 
                 DepthStencilState
             }, 
-            input_assembly::InputAssemblyState, multisample::MultisampleState, 
-            rasterization::{DepthBiasState, RasterizationState}, 
+            input_assembly::InputAssemblyState, 
+            multisample::MultisampleState, 
+            rasterization::{
+                CullMode, DepthBiasState, RasterizationState
+            }, 
             vertex_input::{
                 Vertex, 
                 VertexDefinition
@@ -38,9 +41,7 @@ use vulkano::{
     shader::ShaderModule
 };
 
-pub struct PipelineConstructor {
-
-}
+pub struct PipelineConstructor;
 
 impl PipelineConstructor {
     pub fn get_pipeline<V>(
@@ -101,7 +102,11 @@ impl PipelineConstructor {
                     viewports: [viewport].into_iter().collect(),
                     ..Default::default()
                 }),
-                rasterization_state: Some(RasterizationState::default()),
+                // rasterization_state: Some(RasterizationState::default()),
+                rasterization_state: Some(RasterizationState{
+                    cull_mode: CullMode::Back,
+                    ..Default::default()
+                }),
                 multisample_state: Some(MultisampleState {
                     rasterization_samples: samples,
                     ..Default::default()

@@ -9,7 +9,7 @@ use winit::event::VirtualKeyCode;
 use crate::engine::ecs::{
     Entity, 
     components::{
-        movement_speeds::MovementSpeeds, 
+        default_controller::DefaultController, 
         transform::Transform
     }, 
     world_coordinator::WorldCoordinator, 
@@ -18,11 +18,11 @@ use crate::engine::ecs::{
 
 
 #[derive(Default)]
-pub struct UserControllerSystem {
+pub struct DefaultControllerSystem {
     pub entities: HashSet<Entity>,
 }
 
-impl UserControllerSystem {
+impl DefaultControllerSystem {
     pub fn new() -> Self {
         Self {
             entities: HashSet::new(),
@@ -30,7 +30,7 @@ impl UserControllerSystem {
     }
 }
 
-impl SystemTrait for UserControllerSystem {
+impl SystemTrait for DefaultControllerSystem {
     fn entities(&self) -> &HashSet<Entity> {
         &self.entities
     }
@@ -41,7 +41,7 @@ impl SystemTrait for UserControllerSystem {
 
     fn update(&self, entity: Entity, coordinator: &mut WorldCoordinator, dt: f32) {
         let translation = {
-            let speeds = coordinator.get_component::<MovementSpeeds>(entity);
+            let speeds = coordinator.get_component::<DefaultController>(entity);
             speeds.translation
         };
 

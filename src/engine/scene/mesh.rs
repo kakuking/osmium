@@ -263,6 +263,14 @@ impl Mesh {
         );
     }
 
+    pub fn get_vertices(&self) -> &Vec<OsmiumVertex> {
+        &self.vertices
+    }
+
+    pub fn get_indices(&self) -> &Vec<OsmiumVertex> {
+        &self.vertices
+    }
+
     pub fn get_num_vertices(&self) -> u32 {
         self.num_vertices
     }

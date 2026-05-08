@@ -2,34 +2,57 @@ use std::time::{Duration, Instant};
 
 use nalgebra::{Unit, UnitQuaternion, Vector3};
 use winit::{
-    event::{ElementState, Event, KeyboardInput, WindowEvent}, 
-    event_loop::{ControlFlow, EventLoop},
+    event::{
+        DeviceEvent, ElementState, 
+        Event, KeyboardInput, 
+        MouseButton, VirtualKeyCode, 
+        WindowEvent
+    }, 
+    event_loop::{
+        ControlFlow, EventLoop
+    }, 
+    window::CursorGrabMode,
 };
 
 use crate::engine::{
     config::{
-        camera_config::CameraConfig, light_config::LightConfig, material_config::MaterialConfig, mesh_config::MeshConfig, renderer_config::RendererConfig
+        camera_config::CameraConfig, 
+        light_config::LightConfig, 
+        material_config::MaterialConfig, 
+        mesh_config::MeshConfig, 
+        renderer_config::RendererConfig
     }, ecs::{
         components::{
-            camera::Camera, light::Light, movement_speeds::MovementSpeeds, physics::{
-                PhysicsBody, 
-                PhysicsBodyConfig, 
-                PhysicsCollider
-            }, renderable::MeshRenderable, transform::Transform
-        }, coordinator::Coordinator, 
+            camera::Camera, 
+            default_controller::DefaultController, 
+            default_first_person_controller::FirstPersonController, 
+            light::Light, physics::{
+                PhysicsBody, PhysicsBodyConfig, 
+                PhysicsBodyType, PhysicsCollider
+            }, 
+            renderable::MeshRenderable, 
+            transform::Transform
+        }, 
+        coordinator::Coordinator, 
         signature::Signature, 
         systems::{
-            camera::CameraSystem, light::LightSystem, physics::PhysicsSystem, render::RenderSystem, user_controller::UserControllerSystem
+            camera::CameraSystem, 
+            default_controller::DefaultControllerSystem, 
+            default_first_person_controller::FirstPersonControllerSystem, 
+            light::LightSystem, 
+            physics::PhysicsSystem, 
+            render::RenderSystem
         }
     }, 
     renderer::renderer::Renderer, 
     scene::{
         asset_manager::AssetManager, 
-        mesh::{
-            Mesh, 
-        }, 
+        mesh::Mesh, 
     }, 
-    window::{event_manager::EngineEvent, window_manager::WindowManager} 
+    window::{
+        event_manager::EngineEvent, 
+        window_manager::WindowManager
+    } 
 };
 
 pub struct OsmiumEngine {
@@ -51,7 +74,8 @@ impl OsmiumEngine {
         let mut coordinator = Coordinator::new();
 
         coordinator.register_component::<MeshRenderable>();
-        coordinator.register_component::<MovementSpeeds>();
+        coordinator.register_component::<DefaultController>();
+        coordinator.register_component::<FirstPersonController>();
         coordinator.register_component::<Transform>();
         coordinator.register_component::<PhysicsBodyConfig>();
         coordinator.register_component::<PhysicsBody>();
@@ -92,7 +116,7 @@ impl OsmiumEngine {
         }
 
         {
-            coordinator.register_system::<UserControllerSystem>();
+            coordinator.register_system::<DefaultControllerSystem>();
 
             let mut signature = Signature::new();
             signature.set(
@@ -100,10 +124,10 @@ impl OsmiumEngine {
                 true
             );
             signature.set(
-                coordinator.get_component_type::<MovementSpeeds>() as usize, 
+                coordinator.get_component_type::<DefaultController>() as usize, 
                 true
             );
-            coordinator.set_system_signature::<UserControllerSystem>(signature);
+            coordinator.set_system_signature::<DefaultControllerSystem>(signature);
         }
 
         {
@@ -134,6 +158,25 @@ impl OsmiumEngine {
                 true
             );
             coordinator.set_system_signature::<LightSystem>(signature);
+        }
+
+        {
+            coordinator.register_system::<FirstPersonControllerSystem>();
+
+            let mut signature = Signature::new();
+            signature.set(
+                coordinator.get_component_type::<Transform>() as usize, 
+                true
+            );
+            signature.set(
+                coordinator.get_component_type::<Camera>() as usize, 
+                true
+            );
+            signature.set(
+                coordinator.get_component_type::<FirstPersonController>() as usize,
+                true
+            );
+            coordinator.set_system_signature::<FirstPersonControllerSystem>(signature);
         }
 
         let mut assets = Self::create_basic_scene(&mut coordinator);
@@ -177,10 +220,17 @@ impl OsmiumEngine {
             let mesh = Mesh::init(
                 &mesh_config
             );
+
+            let physics_body_config = PhysicsBodyConfig::from_mesh(
+                &mesh,
+                PhysicsBodyType::Dynamic
+            );
+
             let mesh_handle = asset_manager.add_mesh(mesh);
             
             let mut transform = Transform::new();
             transform.position.z = -2.0;
+            transform.position.y = 2.0;
 
             let entity = coordinator.create_entity();
 
@@ -196,6 +246,11 @@ impl OsmiumEngine {
                 entity, 
                 transform
             );
+
+            coordinator.add_component(
+                entity,
+                physics_body_config
+            );
         }
         
         // Plane below giant and menacing cube
@@ -206,6 +261,12 @@ impl OsmiumEngine {
             let mesh = Mesh::init(
                 &mesh_config
             );
+
+            let physics_body_config = PhysicsBodyConfig::from_mesh(
+                &mesh,
+                PhysicsBodyType::Dynamic
+            );
+
             let mesh_handle = asset_manager.add_mesh(mesh);
             
             let mut transform = Transform::new();
@@ -226,100 +287,12 @@ impl OsmiumEngine {
                 entity, 
                 transform
             );
+
+            coordinator.add_component(
+                entity, 
+                physics_body_config
+            );
         }
-
-        // falling rectangle
-        // {
-        //     let vertices = vec![
-        //         OsmiumVertex::init_pos_uv([-0.5, -0.5, 0.2], [0.0, 0.0]),
-        //         OsmiumVertex::init_pos_uv([ 0.5, -0.5, 0.2], [1.0, 0.0]),
-        //         OsmiumVertex::init_pos_uv([-0.5,  0.5, 0.2], [0.0, 1.0]),
-        //         OsmiumVertex::init_pos_uv([ 0.5, -0.5, 0.2], [1.0, 0.0]),
-        //         OsmiumVertex::init_pos_uv([-0.5,  0.5, 0.2], [0.0, 1.0]),
-        //         OsmiumVertex::init_pos_uv([ 0.5,  0.5, 0.2], [1.0, 1.0]),
-        //     ];
-
-        //     let collider = PhysicsBodyConfig::from_vertices(
-        //         &vertices,
-        //         0.5,
-        //         PhysicsBodyType::Dynamic
-        //     );
-
-        //     let mesh = Mesh::init_direct(
-        //         vertices, 
-        //         None
-        //     );
-
-        //     let mesh_handle = asset_manager.add_mesh(mesh);
-            
-        //     let entity = coordinator.create_entity();
-
-        //     coordinator.add_component(
-        //         entity, 
-        //         MeshRenderable::new(
-        //             mesh_handle, 
-        //             material_handle
-        //         )
-        //     );
-
-        //     coordinator.add_component(
-        //         entity, 
-        //         Transform::new()
-        //     );
-
-        //     coordinator.add_component(
-        //         entity, 
-        //         collider
-        //     );
-        // }
-
-        // // Static floor
-        // {
-        //     let vertices = vec![
-        //         OsmiumVertex::init_pos_uv([-0.8, -0.05, 0.2], [0.0, 0.0]),
-        //         OsmiumVertex::init_pos_uv([ 0.8, -0.05, 0.2], [1.0, 0.0]),
-        //         OsmiumVertex::init_pos_uv([ -0.8,  0.15, 0.2], [0.0, 1.0]),
-        //         OsmiumVertex::init_pos_uv([ 0.8, -0.05, 0.2], [1.0, 0.0]),
-        //         OsmiumVertex::init_pos_uv([ -0.8,  0.15, 0.2], [0.0, 1.0]),
-        //         OsmiumVertex::init_pos_uv([ 0.8,  0.15, 0.2], [1.0, 1.0]),
-        //     ];
-
-        //     let collider = PhysicsBodyConfig::from_vertices(
-        //         &vertices,
-        //         0.5,
-        //         PhysicsBodyType::Fixed
-        //     );
-            
-        //     let mesh = Mesh::init_direct(
-        //         vertices, 
-        //         None
-        //     );
-    
-        //     let mesh_handle = asset_manager.add_mesh(mesh);
-    
-        //     let entity = coordinator.create_entity();
-        //     let mut transform = Transform::new();
-        //     transform.position.y = -1.0;
-        //     transform.position.z = 0.1;
-    
-        //     coordinator.add_component(
-        //         entity,
-        //         MeshRenderable::new(
-        //             mesh_handle, 
-        //             material_handle
-        //         ),
-        //     );
-    
-        //     coordinator.add_component(
-        //         entity, 
-        //         transform
-        //     );
-
-        //     coordinator.add_component(
-        //         entity,
-        //         collider
-        //     );
-        // }
         
         // camera
         {
@@ -343,7 +316,7 @@ impl OsmiumEngine {
 
             coordinator.add_component(
                 entity, 
-                MovementSpeeds::new()
+                FirstPersonController::new()
             );
         }
 
@@ -388,14 +361,25 @@ impl OsmiumEngine {
         let mut coordinator = self.coordinator;
 
         let target_frame_time = Duration::from_secs_f64(1.0 / config.target_fps as f64);
-        let mut last_frame = Instant::now();
         let mut frame_count = 0;
         let mut fps_timer = Instant::now();
+
+        // Since its V-sync by default, don't need to limit the frame-rate
 
         event_loop.run(move |event, _, control_flow| {
             *control_flow = ControlFlow::Poll;
 
             match event {
+                Event::DeviceEvent {
+                    event: DeviceEvent::MouseMotion { delta },
+                    ..
+                } => {
+                    if coordinator.events().mouse_captured() {
+                        coordinator
+                            .events_mut()
+                            .add_mouse_delta(delta.0, delta.1);
+                    }
+                }
                 Event::WindowEvent { event, .. } => {
                     match event {
                         WindowEvent::CloseRequested => {
@@ -420,6 +404,16 @@ impl OsmiumEngine {
                                 },
                             ..
                         } => {
+                            if key == VirtualKeyCode::Escape && state == ElementState::Pressed {
+                                window_manager.get_window().set_cursor_visible(true);
+
+                                let _ = window_manager
+                                    .get_window()
+                                    .set_cursor_grab(CursorGrabMode::None);
+
+                                coordinator.events_mut().set_mouse_captured(false);
+                            }
+
                             match state {
                                 ElementState::Pressed => {
                                     coordinator.send_event(EngineEvent::KeyPressed(key));
@@ -430,8 +424,22 @@ impl OsmiumEngine {
                                 }
                             }
                         }
-
                         WindowEvent::MouseInput { state, button, .. } => {
+                            if button == MouseButton::Left && state == ElementState::Pressed {
+                                window_manager.get_window().set_cursor_visible(false);
+
+                                let _ = window_manager
+                                    .get_window()
+                                    .set_cursor_grab(CursorGrabMode::Locked)
+                                    .or_else(|_| {
+                                        window_manager
+                                            .get_window()
+                                            .set_cursor_grab(CursorGrabMode::Confined)
+                                    });
+
+                                coordinator.events_mut().set_mouse_captured(true);
+                            }
+
                             match state {
                                 ElementState::Pressed => {
                                     coordinator.send_event(EngineEvent::MousePressed(button));
@@ -454,12 +462,11 @@ impl OsmiumEngine {
                 }
 
                 Event::LoopDestroyed => {
-                    println!("No errors occurred!");
+                    println!("Shutting down!");
                 }
 
                 Event::MainEventsCleared => {
                     let now = Instant::now();
-
                     
                     frame_count += 1;
                     if now - fps_timer >= std::time::Duration::from_secs(1) {
@@ -468,10 +475,7 @@ impl OsmiumEngine {
                         fps_timer = now;
                     }
 
-                    if now - last_frame >= target_frame_time {
-                        last_frame = now;
-                        window_manager.get_window().request_redraw();
-                    }
+                    window_manager.get_window().request_redraw();
                 }
 
                 Event::RedrawRequested(_) => {
@@ -479,11 +483,6 @@ impl OsmiumEngine {
 
                     coordinator
                         .update_systems(dt);
-
-                    // renderer.rebuild_command_buffers(
-                    //     &coordinator.get_render_items(), 
-                    //     &assets
-                    // );
 
                     let extent = window_manager.get_window().inner_size();
                     let aspect_ratio = extent.width as f32 / extent.height.max(1) as f32;

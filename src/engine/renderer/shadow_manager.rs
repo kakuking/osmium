@@ -20,7 +20,10 @@ use vulkano::{
 
 use crate::engine::{
     renderer::{
-        global_resources::MAX_LIGHTS, image_manager::ImageManager, pipeline_constructor::PipelineConstructor, vulkan_context::VulkanContext
+        global_resources::MAX_LIGHTS, 
+        image_manager::ImageManager, 
+        pipeline_constructor::PipelineConstructor, 
+        vulkan_context::VulkanContext
     }, scene::{
         asset_manager::{
             Handle, 

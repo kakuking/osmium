@@ -1,6 +1,4 @@
-use nalgebra::{
-    Matrix4, UnitQuaternion, Vector3
-};
+use nalgebra::{Matrix4, UnitQuaternion, Vector3};
 
 #[derive(Debug, Clone, Copy)]
 pub struct Transform {

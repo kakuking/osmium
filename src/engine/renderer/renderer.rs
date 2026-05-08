@@ -32,11 +32,29 @@ use vulkano::{
 };
 
 use crate::engine::{
-    config::renderer_config::RendererConfig, ecs::components::renderable::{ColorPushConstants, ShadowPushConstants}, 
+    config::renderer_config::RendererConfig, 
+    ecs::components::renderable::{
+        ColorPushConstants, 
+        ShadowPushConstants
+    }, 
     renderer::{
-        buffer_manager::BufferManager, descriptor_manager::DescriptorManager, global_resources::{GlobalResources, RenderGlobals}, image_manager::ImageManager, render_pass_constructor::RenderPassConstructor, shader_manager::ShaderManager, shadow_manager::ShadowManager, swapchain_manager::SwapchainManager, vulkan_context::VulkanContext
+        buffer_manager::BufferManager, 
+        descriptor_manager::DescriptorManager, 
+        global_resources::{
+            GlobalResources, 
+            RenderGlobals
+        }, 
+        image_manager::ImageManager, 
+        render_pass_constructor::RenderPassConstructor, 
+        shader_manager::ShaderManager, 
+        shadow_manager::ShadowManager, 
+        swapchain_manager::SwapchainManager, 
+        vulkan_context::VulkanContext
     }, scene::{
-        asset_manager::{AssetManager, ShaderKindKey}, render_item::RenderItem
+        asset_manager::{
+            AssetManager, ShaderKindKey
+        }, 
+        render_item::RenderItem
     }, 
     window::window_manager::WindowManager
 };

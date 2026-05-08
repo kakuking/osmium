@@ -1,5 +1,3 @@
-// use vulkano::descriptor_set::PersistentDescriptorSet;
-
 use crate::engine::{
     scene::{
         asset_manager::{AssetManager, Handle}, material::Material, mesh::Mesh

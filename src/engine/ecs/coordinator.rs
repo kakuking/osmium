@@ -4,13 +4,25 @@ use crate::engine::{
         ComponentType, 
         Entity, 
         components::{
-            camera::Camera, light::Light, renderable::MeshRenderable, transform::Transform
+            camera::Camera, 
+            light::Light, 
+            renderable::MeshRenderable, 
+            transform::Transform
         }, 
         signature::Signature, 
         system::SystemTrait, 
         system_manager::SystemManager, 
-        systems::{camera::CameraSystem, light::LightSystem, render::RenderSystem}, world_coordinator::WorldCoordinator
-    }, renderer::global_resources::{LightGpuData, RenderGlobals}, 
+        systems::{
+            camera::CameraSystem, 
+            light::LightSystem, 
+            render::RenderSystem
+        }, 
+        world_coordinator::WorldCoordinator
+    }, 
+    renderer::global_resources::{
+        LightGpuData, 
+        RenderGlobals
+    }, 
     scene::render_item::RenderItem, 
     window::event_manager::{
         EngineEvent, 

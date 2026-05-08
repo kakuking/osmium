@@ -33,7 +33,9 @@ pub struct EventManager {
     mouse_buttons_down: HashSet<MouseButton>,
     mouse_buttons_up: HashSet<MouseButton>,
 
+    mouse_captured: bool,
     mouse_position: Option<(f64, f64)>,
+    mouse_delta: (f64, f64),
 }
 
 impl EventManager {
@@ -64,6 +66,13 @@ impl EventManager {
             }
 
             EngineEvent::MouseMoved { x, y } => {
+                if self.mouse_captured {
+                    if let Some((last_x, last_y)) = self.mouse_position {
+                        self.mouse_delta.0 += x - last_x;
+                        self.mouse_delta.1 += y - last_y;
+                    }
+                }
+
                 self.mouse_position = Some((*x, *y));
             }
 
@@ -105,6 +114,26 @@ impl EventManager {
         self.mouse_position
     }
 
+    pub fn mouse_delta(&self) -> (f64, f64) {
+        self.mouse_delta
+    }
+
+    pub fn mouse_captured(&self) -> bool {
+        self.mouse_captured
+    }
+
+    pub fn set_mouse_captured(&mut self, captured: bool) {
+        self.mouse_captured = captured;
+    }
+
+    pub fn add_mouse_delta(&mut self, dx: f64, dy: f64) {
+        if self.mouse_captured {
+            self.mouse_delta.0 += dx;
+            self.mouse_delta.1 += dy;
+        }
+    }
+
+
     pub fn clear_frame_events(&mut self) {
         self.events.clear();
 
@@ -113,5 +142,7 @@ impl EventManager {
 
         self.mouse_buttons_down.clear();
         self.mouse_buttons_up.clear();
+
+        self.mouse_delta = (0.0, 0.0);
     }
 }

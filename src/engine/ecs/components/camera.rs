@@ -1,7 +1,9 @@
 use nalgebra::{Matrix4, Orthographic3, Perspective3};
 
 use crate::engine::{
-    config::camera_config::CameraConfig, ecs::components::transform::Transform, renderer::global_resources::CameraGpuData
+    config::camera_config::CameraConfig, 
+    ecs::components::transform::Transform, 
+    renderer::global_resources::CameraGpuData
 };
 
 pub struct Camera {
