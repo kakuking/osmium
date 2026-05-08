@@ -2,7 +2,7 @@
 
 ~~currently following the [vulkano book](https://vulkano.rs/01-introduction/01-introduction.html)~~
 
-![Sample output](https://github.com/kakuking/osmium/blob/a51619d05f43657707e0a44d19e1ca6a13b45c1d/sample_output.png)
+![Sample output](https://github.com/kakuking/Osmium/blob/faf3177484acbe07e9cc072e4b26dfb9c5e21985/sample_output.mp4)
 
 Now approahcing new horizons and feeling my way through it
 
@@ -32,6 +32,8 @@ Now approahcing new horizons and feeling my way through it
 - [x] Added height mapping
 - [x] Finish adding global descriptors (camera, lighting, etc)
 - [x] Add shadow mapping
+- [x] Added FPS controller
+- [x] Marginally Better event handling
 - [ ] Make shadow mapping frustrum tight-fitting
 - [ ] Add collision checking stuff
 - [ ] Add cascading shadow mapping?
