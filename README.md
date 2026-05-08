@@ -2,7 +2,7 @@
 
 ~~currently following the [vulkano book](https://vulkano.rs/01-introduction/01-introduction.html)~~
 
-![Sample output](https://github.com/kakuking/Osmium/blob/faf3177484acbe07e9cc072e4b26dfb9c5e21985/sample_output.mp4)
+https://github.com/user-attachments/assets/18bf918a-d8d5-4008-8414-1c7595834666
 
 Now approahcing new horizons and feeling my way through it
 
