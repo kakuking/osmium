@@ -183,14 +183,20 @@ pub struct AssetManager {
 
 impl AssetManager {
     pub fn new() -> Self {
-        Self {
+        let mut ret = Self {
             meshes: AssetStorage::new(),
             materials: AssetStorage::new(),
             textures: AssetStorage::new(),
             shaders: ShaderStorage::new(),
 
             material_configs: Vec::new(),
-        }
+        };
+
+        // Create a default material so at least 1 pipeline exists
+        let material_config = MaterialConfig::new();
+        ret.add_material_config(material_config);
+
+        ret
     }
 
     pub fn add_mesh(&mut self, asset: Mesh) -> Handle<Mesh> {

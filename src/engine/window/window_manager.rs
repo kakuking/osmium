@@ -106,4 +106,12 @@ impl WindowManager {
     pub fn get_window(&self) -> Arc<Window> {
         self.window.clone()
     }
+
+    pub fn get_inner_size(&self) -> PhysicalSize<u32> {
+        self.window.inner_size()
+    }
+
+    pub fn request_redraw(&self) {
+        self.window.request_redraw();
+    }
 }

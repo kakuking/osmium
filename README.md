@@ -2,7 +2,7 @@
 
 ~~currently following the [vulkano book](https://vulkano.rs/01-introduction/01-introduction.html)~~
 
-https://github.com/user-attachments/assets/18bf918a-d8d5-4008-8414-1c7595834666
+[Sample Output](https://github.com/user-attachments/assets/18bf918a-d8d5-4008-8414-1c7595834666)
 
 Now approahcing new horizons and feeling my way through it
 
@@ -34,6 +34,8 @@ Now approahcing new horizons and feeling my way through it
 - [x] Add shadow mapping
 - [x] Added FPS controller
 - [x] Marginally Better event handling
+- [x] Make engine an actual application aside from the renderer
+- [x] Add basic engine GUI using egui
 - [ ] Make shadow mapping frustrum tight-fitting
 - [ ] Add collision checking stuff
 - [ ] Add cascading shadow mapping?

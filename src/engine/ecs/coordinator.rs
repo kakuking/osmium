@@ -24,20 +24,22 @@ use crate::engine::{
         RenderGlobals
     }, 
     scene::render_item::RenderItem, 
-    window::event_manager::{
+    window::{event_manager::{
         EngineEvent, 
         EventManager
-    }
+    }, window_manager::WindowManager}
 };
 
 pub struct Coordinator {
+    pub window_manager: WindowManager,
     world_coordinator: WorldCoordinator,
-    system_manager: SystemManager
+    system_manager: SystemManager,
 }
 
 impl Coordinator {
-    pub fn new() -> Self {
+    pub fn new(window_manager: WindowManager) -> Self {
         Self {
+            window_manager,
             world_coordinator: WorldCoordinator::new(),
             system_manager: SystemManager::new()
         }

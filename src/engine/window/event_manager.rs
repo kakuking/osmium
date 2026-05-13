@@ -127,10 +127,10 @@ impl EventManager {
     }
 
     pub fn add_mouse_delta(&mut self, dx: f64, dy: f64) {
-        if self.mouse_captured {
+        // if self.mouse_captured {
             self.mouse_delta.0 += dx;
             self.mouse_delta.1 += dy;
-        }
+        // }
     }
 
 

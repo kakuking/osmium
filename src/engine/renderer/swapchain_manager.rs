@@ -15,7 +15,7 @@ use vulkano::{
     ImageCreateInfo, 
     ImageType, 
     ImageUsage, 
-    SampleCount
+    SampleCount, view::ImageView
     }, memory::allocator::{
         AllocationCreateInfo, 
         MemoryTypeFilter
@@ -45,6 +45,7 @@ use crate::engine::{
 pub struct SwapchainManager {
     swapchain: Arc<Swapchain>,
     images: Vec<Arc<Image>>,
+    image_views: Vec<Arc<ImageView>>,
     depth_images: Vec<Arc<Image>>,
     msaa_images: Vec<Arc<Image>>,
     framebuffers: Vec<Arc<Framebuffer>>,
@@ -91,6 +92,8 @@ impl SwapchainManager {
             },
         )
         .unwrap();
+
+        let image_views = Self::create_image_views(&images);
 
         let msaa_images: Vec<Arc<Image>> = Self::create_msaa_images(
             vulkan_context,
@@ -140,6 +143,7 @@ impl SwapchainManager {
         Self {
             swapchain,
             images,
+            image_views,
             msaa_images,
             depth_images,
             framebuffers,
@@ -364,6 +368,8 @@ impl SwapchainManager {
             })
             .expect("Failed to recreate swapchain");
 
+        let image_views = Self::create_image_views(&images);
+
         let msaa_images = Self::create_msaa_images(
             vulkan_context, 
             self.swapchain.image_format(), 
@@ -410,12 +416,22 @@ impl SwapchainManager {
 
         self.swapchain = swapchain;
         self.images = images;
+        self.image_views = image_views;
         self.msaa_images = msaa_images;
         self.depth_images = depth_images;
         self.viewport = viewport;
         self.framebuffers = framebuffers;
 
         true
+    }
+
+    fn create_image_views(images: &[Arc<Image>]) -> Vec<Arc<ImageView>> {
+        images
+            .iter()
+            .map(|image| {
+                ImageManager::get_image_view(image.clone())
+            })
+            .collect()
     }
 
     pub fn get_swapchain(&self) -> Arc<Swapchain> {
@@ -454,5 +470,9 @@ impl SwapchainManager {
         Some(
             self.depth_images[0].format()
         )
+    }
+
+    pub fn get_image_view(&self, image_i: usize) -> Arc<ImageView> {
+        self.image_views[image_i].clone()
     }
 }

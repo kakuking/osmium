@@ -1,5 +1,6 @@
-use crate::engine::app::OsmiumEngine;
+use crate::application::app::OsmiumEngine;
 
+pub mod application;
 pub mod engine;
 
 fn main() {

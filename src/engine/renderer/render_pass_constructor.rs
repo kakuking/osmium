@@ -24,11 +24,9 @@ impl RenderPassConstructor {
         image_format: Format,
         depth_format: Format
     ) -> Arc<RenderPass> {
-        match (config.enable_depth, config.render_pass.samples) {
-            (false, 1) => Self::color(config, device, image_format),
-            (false, _) => Self::color_msaa(config, device, image_format),
-            (true, 1) => Self::color_depth(config, device, image_format, depth_format),
-            (true, _) => Self::color_depth_msaa(config, device, image_format, depth_format),
+        match config.render_pass.samples {
+            1 => Self::color_only(config, device, image_format, depth_format),
+            _ => Self::color_msaa(config, device, image_format, depth_format),
         }
     }
 
@@ -56,102 +54,7 @@ impl RenderPassConstructor {
         .unwrap()
     }
 
-    fn color(
-        config: &RendererConfig,
-        device: Arc<Device>,
-        image_format: Format,
-    ) -> Arc<RenderPass> {
-        match (
-            config.render_pass.clear_color,
-            config.render_pass.store_color,
-        ) {
-            (true, true) => {
-                vulkano::single_pass_renderpass!(
-                    device,
-                    attachments: {
-                        color: {
-                            format: image_format,
-                            samples: 1,
-                            load_op: Clear,
-                            store_op: Store,
-                            initial_layout: PresentSrc,
-                            final_layout: PresentSrc,
-                        },
-                    },
-                    pass: {
-                        color: [color],
-                        depth_stencil: {},
-                    },
-                )
-                .unwrap()
-            }
-
-            (true, false) => {
-                vulkano::single_pass_renderpass!(
-                    device,
-                    attachments: {
-                        color: {
-                            format: image_format,
-                            samples: 1,
-                            load_op: Clear,
-                            store_op: DontCare,
-                            initial_layout: PresentSrc,
-                            final_layout: PresentSrc,
-                        },
-                    },
-                    pass: {
-                        color: [color],
-                        depth_stencil: {},
-                    },
-                )
-                .unwrap()
-            }
-
-            (false, true) => {
-                vulkano::single_pass_renderpass!(
-                    device,
-                    attachments: {
-                        color: {
-                            format: image_format,
-                            samples: 1,
-                            load_op: DontCare,
-                            store_op: Store,
-                            initial_layout: PresentSrc,
-                            final_layout: PresentSrc,
-                        },
-                    },
-                    pass: {
-                        color: [color],
-                        depth_stencil: {},
-                    },
-                )
-                .unwrap()
-            }
-
-            (false, false) => {
-                vulkano::single_pass_renderpass!(
-                    device,
-                    attachments: {
-                        color: {
-                            format: image_format,
-                            samples: 1,
-                            load_op: DontCare,
-                            store_op: DontCare,
-                            initial_layout: PresentSrc,
-                            final_layout: PresentSrc,
-                        },
-                    },
-                    pass: {
-                        color: [color],
-                        depth_stencil: {},
-                    },
-                )
-                .unwrap()
-            }
-        }
-    }
-
-    fn color_depth(
+    fn color_only(
         config: &RendererConfig,
         device: Arc<Device>,
         image_format: Format,
@@ -284,47 +187,11 @@ impl RenderPassConstructor {
         config: &RendererConfig,
         device: Arc<Device>,
         image_format: Format,
-    ) -> Arc<RenderPass> {
-        let samples = config.render_pass.samples;
-
-        vulkano::single_pass_renderpass!(
-            device,
-            attachments: {
-                color_msaa: {
-                    format: image_format,
-                    samples: samples,
-                    load_op: Clear,
-                    store_op: DontCare,
-                    initial_layout: ColorAttachmentOptimal,
-                    final_layout: ColorAttachmentOptimal,
-                },
-                color_resolve: {
-                    format: image_format,
-                    samples: 1,
-                    load_op: DontCare,
-                    store_op: Store,
-                    initial_layout: PresentSrc,
-                    final_layout: PresentSrc,
-                },
-            },
-            pass: {
-                color: [color_msaa],
-                color_resolve: [color_resolve],
-                depth_stencil: {},
-            },
-        )
-        .unwrap()
-    }
-
-    fn color_depth_msaa(
-        config: &RendererConfig,
-        device: Arc<Device>,
-        image_format: Format,
         depth_format: Format
     ) -> Arc<RenderPass> {
         let samples = config.render_pass.samples;
 
-        vulkano::single_pass_renderpass!(
+        vulkano::ordered_passes_renderpass!(
             device,
             attachments: {
                 color_msaa: {
@@ -332,7 +199,7 @@ impl RenderPassConstructor {
                     samples: samples,
                     load_op: Clear,
                     store_op: DontCare,
-                    initial_layout: ColorAttachmentOptimal,
+                    initial_layout: Undefined,
                     final_layout: ColorAttachmentOptimal,
                 },
                 color_resolve: {
@@ -340,7 +207,7 @@ impl RenderPassConstructor {
                     samples: 1,
                     load_op: DontCare,
                     store_op: Store,
-                    initial_layout: PresentSrc,
+                    initial_layout: Undefined,
                     final_layout: PresentSrc,
                 },
                 depth: {
@@ -352,11 +219,20 @@ impl RenderPassConstructor {
                     final_layout: DepthStencilAttachmentOptimal,
                 },
             },
-            pass: {
-                color: [color_msaa],
-                color_resolve: [color_resolve],
-                depth_stencil: {depth},
-            },
+            passes: [
+                {
+                    color: [color_msaa],
+                    color_resolve: [color_resolve],
+                    depth_stencil: { depth },
+                    input: [],
+                },
+                {
+                    color: [color_resolve],
+                    color_resolve: [],
+                    depth_stencil: {},
+                    input: [],
+                }
+            ],
         )
         .unwrap()
     }

@@ -16,6 +16,7 @@ pub struct PhysicsCollider {
 pub enum PhysicsBodyType {
     Dynamic,
     Fixed,
+    KinematicPositionBased
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -25,7 +26,10 @@ pub struct PhysicsBodyConfig {
 }
 
 impl PhysicsBodyConfig {
-    pub fn dynamic_box(half_extents: [f32; 3], body_type: PhysicsBodyType) -> Self {
+    pub fn from_extents(
+        half_extents: [f32; 3], 
+        body_type: PhysicsBodyType
+    ) -> Self {
         Self {
             body_type,
             half_extents,

@@ -4,16 +4,19 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-nalgebra = "*"
 vulkano = "0.34.0"
-shaderc = "0.10"
 winit = "0.28.0"
+shaderc = "0.8"
+nalgebra = "*"
 image = "*"
 serde = { version = "1.0", features = ["derive"] }
 toml = "0.8"
 rapier2d = "0.29"
 rapier3d = "0.29"
 tobj = "4"
+# egui = "0.21"
+egui-winit = "0.21"
+egui_winit_vulkano = "0.26"
 
 # For VUlkano optimization
 [profile.dev]

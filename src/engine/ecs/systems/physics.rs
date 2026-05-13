@@ -5,13 +5,12 @@ use rapier3d::prelude::*;
 use crate::engine::ecs::{
     Entity,
     components::{
-        physics::{
+        default_first_person_controller::FirstPersonController, physics::{
             PhysicsBody,
             PhysicsBodyConfig,
             PhysicsBodyType,
             PhysicsCollider,
-        },
-        transform::Transform,
+        }, transform::Transform
     },
     system::SystemTrait,
     world_coordinator::WorldCoordinator,
@@ -34,8 +33,8 @@ impl PhysicsSystem {
         let body_builder = match config.body_type {
             PhysicsBodyType::Dynamic => RigidBodyBuilder::dynamic(),
             PhysicsBodyType::Fixed => RigidBodyBuilder::fixed(),
-        }
-            .enabled_rotations(false, false, true); // TODO - REMOVE THIS LOCK ON ROTATIONS
+            PhysicsBodyType::KinematicPositionBased => RigidBodyBuilder::kinematic_position_based(),
+        };
 
         let rigid_body = body_builder
             .translation(vector![
@@ -49,10 +48,16 @@ impl PhysicsSystem {
 
         let body_handle = physics.bodies.insert(rigid_body);
 
+        let scaled_half_extents = [
+            config.half_extents[0] * transform.scale.x.abs(),
+            config.half_extents[1] * transform.scale.y.abs(),
+            config.half_extents[2] * transform.scale.z.abs(),
+        ];
+
         let collider = ColliderBuilder::cuboid(
-            config.half_extents[0],
-            config.half_extents[1],
-            config.half_extents[2],
+            scaled_half_extents[0],
+            scaled_half_extents[1],
+            scaled_half_extents[2],
         )
         .build();
 
@@ -112,8 +117,11 @@ impl SystemTrait for PhysicsSystem {
         else {
             return;
         };
+        
+        let is_first_person = world.has_component::<FirstPersonController>(entity);
 
         let transform = world.get_component_mut::<Transform>(entity);
+
 
         if transform.position != pos || transform.rotation != rot {
             transform.dirty = true;
@@ -121,8 +129,10 @@ impl SystemTrait for PhysicsSystem {
             transform.position.x = pos.x;
             transform.position.y = pos.y;
             transform.position.z = pos.z;
-    
-            transform.rotation = rot;
+            
+            if !is_first_person {
+                transform.rotation = rot;
+            }
         }
 
     }

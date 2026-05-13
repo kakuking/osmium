@@ -3,7 +3,6 @@ use std::sync::Arc;
 use vulkano::{
     Validated, VulkanError, buffer::IndexBuffer, command_buffer::{
         AutoCommandBufferBuilder, 
-        CommandBufferExecFuture, 
         CommandBufferUsage, 
         PrimaryAutoCommandBuffer, 
         RenderPassBeginInfo, 
@@ -19,19 +18,17 @@ use vulkano::{
     }, swapchain::{
         self, 
         PresentFuture, 
-        SwapchainAcquireFuture, 
         SwapchainPresentInfo
     }, sync::{
         self, 
         GpuFuture, 
         future::{
             FenceSignalFuture, 
-            JoinFuture
         }
     }
 };
 
-use crate::engine::{
+use crate::{application::gui::OsmiumGUI, engine::{
     config::renderer_config::RendererConfig, 
     ecs::components::renderable::{
         ColorPushConstants, 
@@ -57,20 +54,16 @@ use crate::engine::{
         render_item::RenderItem
     }, 
     window::window_manager::WindowManager
-};
+}};
 
-type FenceType = FenceSignalFuture<
-    PresentFuture<
-        CommandBufferExecFuture<
-            JoinFuture<Box<dyn GpuFuture>, SwapchainAcquireFuture>
-        >
-    >
+pub type OsmiumFuture = FenceSignalFuture<
+    PresentFuture<Box<dyn GpuFuture>>
 >;
 
 struct FrameState {
     recreate_swapchain: bool,
     previous_fence_i: usize,
-    fences: Vec<Option<Arc<FenceType>>>
+    fences: Vec<Option<Arc<OsmiumFuture>>>
 }
 
 impl FrameState {
@@ -92,8 +85,8 @@ impl FrameState {
 }
 
 pub struct Renderer {
-    vulkan_context: VulkanContext,
-    render_pass: Arc<RenderPass>,
+    pub vulkan_context: VulkanContext,
+    pub render_pass: Arc<RenderPass>,
     
     pub shader_manager: Arc<ShaderManager>,
     pub descriptor_manager: Arc<DescriptorManager>,
@@ -101,7 +94,7 @@ pub struct Renderer {
     pub image_manager: ImageManager,
     
     frame_state: FrameState,
-    swapchain_manager: SwapchainManager,
+    pub swapchain_manager: SwapchainManager,
     shadow_manager: ShadowManager,
 
     global_resources: GlobalResources // only 1 as all materials have same set 0
@@ -318,7 +311,8 @@ impl Renderer {
         window_manager: &WindowManager,
         assets: &mut AssetManager,
         render_items: &Vec<RenderItem>,
-        globals: &RenderGlobals
+        globals: RenderGlobals,
+        gui: &mut OsmiumGUI
     ) {
         if self.frame_state.recreate_swapchain {
             self.recreate_swapchain(
@@ -351,7 +345,7 @@ impl Renderer {
 
         self.global_resources.update(
             image_i as usize, 
-            globals
+            &globals
         );
 
         let previous_future = match self.frame_state.fences[self.frame_state.previous_fence_i].clone() {
@@ -367,32 +361,39 @@ impl Renderer {
 
         let queue = self.vulkan_context.get_queue();
 
-        let command_buffers = Self::create_command_buffers(
+        let frame_i = image_i as usize;
+
+        let command_buffers =  Self::create_command_buffers(
             &self.vulkan_context, 
             self.swapchain_manager.enable_depth(), 
             self.swapchain_manager.get_samples() as u32, 
-            self.swapchain_manager.get_framebuffers(), 
-            render_items, 
+            self.swapchain_manager.get_framebuffers()[frame_i].clone(), 
+            render_items,
             assets,
-            &self.global_resources,
+            self.global_resources.descriptor_set(frame_i),
             &self.shadow_manager,
-            globals
+            &globals,
+            gui
         );
 
         let future = previous_future
             .join(acquire_future)
             .then_execute(
-                queue.clone(), 
-                command_buffers[image_i as usize].clone()
+                queue.clone(),
+                command_buffers,
             )
             .unwrap()
+            .boxed()
             .then_swapchain_present(
-                queue.clone(), 
-                SwapchainPresentInfo::swapchain_image_index(swapchain.clone(), image_i)
+                queue.clone(),
+                SwapchainPresentInfo::swapchain_image_index(
+                    swapchain.clone(),
+                    image_i,
+                ),
             )
             .then_signal_fence_and_flush();
 
-        self.frame_state.fences[image_i as usize] = match future.map_err(
+        self.frame_state.fences[frame_i] = match future.map_err(
             Validated::unwrap
         ) {
             Ok(value) => Some(Arc::new(value)),
@@ -406,40 +407,10 @@ impl Renderer {
             }
         };
 
-        self.frame_state.previous_fence_i = image_i as usize;
+        self.frame_state.previous_fence_i = frame_i;
     } 
 
     fn create_command_buffers(
-        vulkan_context: &VulkanContext,
-        enable_depth: bool,
-        msaa: u32,
-        framebuffers: &Vec<Arc<Framebuffer>>,
-        render_items: &Vec<RenderItem>,
-        assets: &AssetManager,
-        global_resources: &GlobalResources,
-        shadow_manager: &ShadowManager,
-        globals: &RenderGlobals,
-    ) -> Vec<Arc<PrimaryAutoCommandBuffer>> {
-        framebuffers
-            .iter()
-            .enumerate()
-            .map(|(frame_i, framebuffer)| {
-                Self::create_one_command_buffer(
-                    vulkan_context, 
-                    enable_depth,
-                    msaa,
-                    framebuffer.clone(), 
-                    render_items,
-                    assets,
-                    global_resources.descriptor_set(frame_i),
-                    shadow_manager,
-                    globals
-                )
-            })
-            .collect()
-    }
-
-    fn create_one_command_buffer(
         vulkan_context: &VulkanContext,
         enable_depth: bool,
         msaa: u32,
@@ -449,6 +420,7 @@ impl Renderer {
         global_descriptor_set: Arc<PersistentDescriptorSet>,
         shadow_manager: &ShadowManager,
         globals: &RenderGlobals,
+        gui: &mut OsmiumGUI
     ) -> Arc<PrimaryAutoCommandBuffer> {
         let clear_color = [1.0, 1.0, 1.0, 1.0];
 
@@ -600,6 +572,24 @@ impl Renderer {
                     .unwrap();
             }
         }
+
+        let gui_cb = gui.render(
+            framebuffer.extent()
+        );
+
+        builder
+            .next_subpass(
+                SubpassEndInfo::default(), 
+                SubpassBeginInfo {
+                    contents: SubpassContents::SecondaryCommandBuffers,
+                    ..Default::default()
+                },
+            )
+            .unwrap();
+
+        builder
+            .execute_commands(gui_cb)
+            .unwrap();
 
         builder
             .end_render_pass(SubpassEndInfo::default())
