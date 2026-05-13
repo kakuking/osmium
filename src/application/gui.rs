@@ -16,8 +16,24 @@ use winit::{
 
 use crate::engine::{renderer::renderer::{Renderer}, window::window_manager::WindowManager};
 
+struct OsmiumTabViewer;
+
+impl egui_dock::TabViewer for OsmiumTabViewer {
+    type Tab = String;
+
+    fn title(&mut self, tab: &mut Self::Tab) -> egui::WidgetText {
+        tab.as_str().into()
+    }
+
+    fn ui(&mut self, ui: &mut egui::Ui, tab: &mut Self::Tab) {
+        ui.label(format!("Content for {tab}"));
+    }
+}
+
 pub struct OsmiumGUI {
-    gui: Gui
+    gui: Gui,
+    dock_state: egui_dock::DockState<String>,
+    tab_viewer: OsmiumTabViewer,
 }
 
 impl OsmiumGUI {
@@ -39,7 +55,12 @@ impl OsmiumGUI {
         );
 
         Self {
-            gui
+            gui,
+            dock_state: egui_dock::DockState::new(vec![
+                "Scene".to_string(),
+                "Inspector".to_string(),
+            ]),
+            tab_viewer: OsmiumTabViewer {},
         }
     }
 
@@ -54,20 +75,22 @@ impl OsmiumGUI {
         &mut self
     ) {
         self.gui.immediate_ui(|gui| {
-            let ctx = gui.context();
+            let ctx = &gui.context();
 
-            egui::Window::new("Osmium Engine")
-                .default_width(260.0)
-                .show(&ctx, |ui| {
-                    ui.heading("Scene");
-                    ui.separator();
+            egui::TopBottomPanel::top("top_bar")
+                .resizable(false)
+                .show(ctx, |ui| {
+                    ui.horizontal(|ui| {
+                        ui.label("Toolbar");
+                    });
+                });
 
-                    ui.label("Renderer running");
-                    ui.label("Camera active");
-
-                    if ui.button("Test button").clicked() {
-                        println!("Clicked UI button");
-                    }
+            egui::SidePanel::left("left_dock_area")
+                .resizable(true)
+                .default_width(300.0)
+                .show(ctx, |ui| {
+                    egui_dock::DockArea::new(&mut self.dock_state)
+                        .show_inside(ui, &mut self.tab_viewer);
                 });
         });
     }
