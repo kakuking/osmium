@@ -4,6 +4,8 @@ pub struct OsmiumCameraController {
 
     pub move_speed: f32,
     pub mouse_sensitivity: f32,
+    pub pan_sensitivity: f32,
+    pub zoom_sensitivity: f32,
 
     pub pitch_limit: f32,
 }
@@ -13,8 +15,12 @@ impl OsmiumCameraController {
         Self {
             yaw: 0.0,
             pitch: 0.0,
+
             move_speed: 5.0,
-            mouse_sensitivity: 0.002,
+            mouse_sensitivity: 0.01,
+            pan_sensitivity: 0.02,
+            zoom_sensitivity: 0.5,
+
             pitch_limit: 89.0_f32.to_radians(),
         }
     }

@@ -3,8 +3,8 @@ use std::{
     collections::HashSet,
 };
 
-use nalgebra::UnitQuaternion;
-use winit::event::MouseButton;
+use nalgebra::{UnitQuaternion, Vector3};
+use winit::event::{MouseButton, VirtualKeyCode};
 
 use crate::{
     application::ecs::components::osmium_camera::OsmiumCameraController, 
@@ -42,32 +42,124 @@ impl SystemTrait for OsmiumCameraControllerSystem {
 
     // for now only rotation
     fn update(&self, entity: Entity, coordinator: &mut WorldCoordinator, _dt: f32) {
-        if !coordinator.events().mouse_pressed(MouseButton::Middle) {
-            return;
-        }
+
+        self.scroll_movement(entity, coordinator);
 
         let (mouse_dx, mouse_dy) = coordinator.events().mouse_delta();
 
-        {
-            let controller = coordinator.get_component_mut::<OsmiumCameraController>(entity);
+        let shift_pressed =
+            coordinator.events().key_pressed(VirtualKeyCode::LShift) ||
+            coordinator.events().key_pressed(VirtualKeyCode::RShift);
 
-            controller.yaw -= mouse_dx as f32 * controller.mouse_sensitivity;
-            controller.pitch -= mouse_dy as f32 * controller.mouse_sensitivity;
+        if shift_pressed {
+            self.pan_movement(entity, coordinator, mouse_dx, mouse_dy);
+        } else {
+            self.rotate_movement(entity, coordinator, mouse_dx, mouse_dy);
+        }
+    }
 
-            controller.pitch = controller.pitch.clamp(
-                -controller.pitch_limit,
-                controller.pitch_limit,
-            );
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
+}
+
+impl OsmiumCameraControllerSystem {
+    fn scroll_movement(&self, entity: Entity, coordinator: &mut WorldCoordinator) {
+        let scroll = coordinator.events().scroll_delta();
+
+        if scroll != 0.0 {
+            let zoom_sensitivity = {
+                let controller = coordinator.get_component::<OsmiumCameraController>(entity);
+                controller.zoom_sensitivity
+            };
+
+            {
+                let transform: &mut Transform =
+                    coordinator.get_component_mut::<Transform>(entity);
+
+                let forward = transform.rotation * -nalgebra::Vector3::z();
+
+                transform.position +=
+                    forward * scroll as f32 * zoom_sensitivity;
+
+                transform.dirty = true;
+            }
+
+            {
+                let camera = coordinator.get_component_mut::<Camera>(entity);
+                camera.dirty = true;
+            }
+        }
+    }
+
+    fn pan_movement(
+        &self, 
+        entity: Entity, 
+        coordinator: &mut WorldCoordinator,
+        mouse_dx: f64, mouse_dy: f64
+    ) {
+        if !coordinator.events().mouse_pressed(MouseButton::Left) {
+            return;
         }
 
-        let (yaw, pitch) = {
+        if mouse_dx == 0.0 && mouse_dy == 0.0 {
+            return;
+        }
+        
+        let pan_sensitivity = {
             let controller = coordinator.get_component::<OsmiumCameraController>(entity);
-
-            (
-                controller.yaw,
-                controller.pitch,
-            )
+            controller.pan_sensitivity
         };
+
+        {
+            let transform: &mut Transform = coordinator.get_component_mut::<Transform>(entity);
+
+            let right = transform.rotation * Vector3::x();
+            let up = transform.rotation * Vector3::y();
+
+            transform.position +=
+                (-right * mouse_dx as f32 + up * mouse_dy as f32) * pan_sensitivity;
+
+            transform.dirty = true;
+        }
+
+        {
+            let camera = coordinator.get_component_mut::<Camera>(entity);
+            camera.dirty = true;
+        }
+
+        return;
+    }
+
+    fn rotate_movement(
+        &self, 
+        entity: Entity, 
+        coordinator: &mut WorldCoordinator,
+        mouse_dx: f64, mouse_dy: f64
+    ) {
+        if !coordinator.events().mouse_pressed(MouseButton::Middle) {
+            return;
+        }
+        
+        if mouse_dx == 0.0 && mouse_dy == 0.0 {
+            return;
+        }
+
+        let controller = coordinator.get_component_mut::<OsmiumCameraController>(entity);
+
+        controller.yaw -= mouse_dx as f32 * controller.mouse_sensitivity;
+        controller.pitch -= mouse_dy as f32 * controller.mouse_sensitivity;
+
+        controller.pitch = controller.pitch.clamp(
+            -controller.pitch_limit,
+            controller.pitch_limit,
+        );
+
+        let (yaw, pitch) = (controller.yaw, controller.pitch);
 
         let rotation =
             UnitQuaternion::from_euler_angles(0.0, yaw, 0.0) *
@@ -94,13 +186,5 @@ impl SystemTrait for OsmiumCameraControllerSystem {
                 camera.dirty = true;
             }
         }
-    }
-
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
-    fn as_any_mut(&mut self) -> &mut dyn Any {
-        self
     }
 }

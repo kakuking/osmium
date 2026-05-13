@@ -4,7 +4,7 @@ use winit::{
     event::{
         DeviceEvent, ElementState, 
         Event, KeyboardInput, 
-        WindowEvent
+        MouseScrollDelta, WindowEvent
     }, 
     event_loop::{
         ControlFlow, EventLoop
@@ -21,7 +21,10 @@ use crate::{
     }, 
     engine::{
         config::{
-            camera_config::CameraConfig, material_config::MaterialConfig, mesh_config::MeshConfig, renderer_config::RendererConfig
+            camera_config::CameraConfig, 
+            material_config::MaterialConfig, 
+            mesh_config::MeshConfig, 
+            renderer_config::RendererConfig
         }, ecs::{
             components::{
                 camera::Camera, 
@@ -265,6 +268,15 @@ impl OsmiumEngine {
                                     }
                                 }
                             }
+                        }
+
+                        WindowEvent::MouseWheel { delta, .. } => {
+                            let scroll = match delta {
+                                MouseScrollDelta::LineDelta(_, y) => y as f64,
+                                MouseScrollDelta::PixelDelta(pos) => pos.y,
+                            };
+
+                            coordinator.events_mut().add_scroll_delta(scroll);
                         }
 
                         WindowEvent::CursorMoved { position, .. } => {

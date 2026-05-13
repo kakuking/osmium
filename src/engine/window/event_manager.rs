@@ -36,6 +36,7 @@ pub struct EventManager {
     mouse_captured: bool,
     mouse_position: Option<(f64, f64)>,
     mouse_delta: (f64, f64),
+    scroll: f64
 }
 
 impl EventManager {
@@ -118,6 +119,10 @@ impl EventManager {
         self.mouse_delta
     }
 
+    pub fn scroll_delta(&self) -> f64 {
+        self.scroll
+    }
+
     pub fn mouse_captured(&self) -> bool {
         self.mouse_captured
     }
@@ -127,12 +132,13 @@ impl EventManager {
     }
 
     pub fn add_mouse_delta(&mut self, dx: f64, dy: f64) {
-        // if self.mouse_captured {
-            self.mouse_delta.0 += dx;
-            self.mouse_delta.1 += dy;
-        // }
+        self.mouse_delta.0 += dx;
+        self.mouse_delta.1 += dy;
     }
 
+    pub fn add_scroll_delta(&mut self, delta: f64) {
+        self.scroll += delta;
+    }
 
     pub fn clear_frame_events(&mut self) {
         self.events.clear();
@@ -144,5 +150,6 @@ impl EventManager {
         self.mouse_buttons_up.clear();
 
         self.mouse_delta = (0.0, 0.0);
+        self.scroll = 0.0;
     }
 }
