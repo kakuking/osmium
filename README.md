@@ -23,7 +23,7 @@ Now approahcing new horizons and feeling my way through it
 - [x] Add User Controller
 - [x] Add Physics Simulation using Rapier, 3D only
 - [x] Fix render pass attachment issue
-- [x] Fix the physics issue (temporary fix by locking rotation on x and y axes)
+- [x] Fix the physics issue
 - [x] Add Proper global descriptors (only camera for now)
 - [x] Removed GLAM and reverted it to just use nalgebra
 - [x] Add more camera types (orthographic and perspective)
@@ -36,10 +36,13 @@ Now approahcing new horizons and feeling my way through it
 - [x] Marginally Better event handling
 - [x] Make engine an actual application aside from the renderer
 - [x] Add basic engine GUI using egui
+- [x] Add imports instead of cluttering the main shaders
+- [x] Add better camera controller for the engine
 - [ ] Make shadow mapping frustrum tight-fitting
 - [ ] Add collision checking stuff
-- [ ] Add cascading shadow mapping?
 - [ ] Add better event handling
+- [ ] Add cascading shadow mapping \*\*
+- [ ] Graph editor for shaders \*\*\*
 - [ ] Add Render Graph \*\*\*\*\*\*
 - [ ] and then...
 

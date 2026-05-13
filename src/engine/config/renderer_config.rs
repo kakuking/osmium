@@ -55,7 +55,7 @@ pub struct RendererConfig {
 
     pub render_pass: RenderPassConfig,
     pub window_config: WindowConfig,
-    pub target_fps: u32,
+    pub target_fps: u32,    // if using VSync, this is disregarded
     pub print_fps: bool,
 
     pub two_d_physics: bool,

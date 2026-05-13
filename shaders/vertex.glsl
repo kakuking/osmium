@@ -1,27 +1,7 @@
 #version 460
 
-#define MAX_LIGHTS 16
-
-struct Light {
-    mat4 view_proj;
-    vec3 color;
-    float pad;
-};
-
-layout(set = 0, binding = 0) uniform CameraData {
-    mat4 view;
-    mat4 proj;
-    mat4 view_proj;
-    vec4 camera_pos;
-} camera;
-
-layout(set = 0, binding = 1) uniform LightCounts {
-    uint light_count;
-};
-
-layout(set = 0, binding = 2) readonly buffer Lights {
-    Light lights[MAX_LIGHTS];
-};
+#include "include/lights.glsl"
+#include "include/camera.glsl"
 
 layout(location = 0) in vec3 position;
 layout(location = 1) in vec3 normal;

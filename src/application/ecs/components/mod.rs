@@ -1,0 +1,1 @@
+pub mod osmium_camera;

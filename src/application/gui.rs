@@ -78,4 +78,16 @@ impl OsmiumGUI {
     ) -> Arc<SecondaryAutoCommandBuffer> {
         self.gui.draw_on_subpass_image(framebuffer_dimensions)
     }
+
+    pub fn wants_pointer_input(
+        &self
+    ) -> bool {
+        self.gui.context().wants_pointer_input()
+    }
+
+    pub fn wants_keyboard_input(
+        &self
+    ) -> bool {
+        self.gui.context().wants_keyboard_input()
+    }
 }

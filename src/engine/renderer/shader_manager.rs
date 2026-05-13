@@ -1,6 +1,6 @@
-use std::{fs, sync::Arc};
+use std::{fs, path::{Path, PathBuf}, sync::Arc};
 
-use shaderc::ShaderKind;
+use shaderc::{IncludeType, ResolvedInclude, ShaderKind};
 use vulkano::{
     device::Device, 
     shader::{
@@ -29,12 +29,40 @@ impl ShaderManager {
         let src = fs::read_to_string(filepath)
             .expect("Failed to read glsl file");
 
+        let shader_path = PathBuf::from(filepath);
+        let shader_dir = shader_path.parent()
+            .unwrap_or(Path::new("."))
+            .to_path_buf();
+
         let mut options = shaderc::CompileOptions::new()
             .unwrap();
 
         options.set_optimization_level(
             shaderc::OptimizationLevel::Zero
         );
+
+        options.set_include_callback(move |requested_source, include_type, requesting_source, _depth| {
+            let include_path = match include_type {
+                IncludeType::Relative => {
+                    let base = Path::new(requesting_source)
+                        .parent()
+                        .unwrap_or(&shader_dir);
+
+                    base.join(requested_source)
+                }
+                IncludeType::Standard => {
+                    PathBuf::from("./shaders/include").join(requested_source)
+                }
+            };
+
+            let content = fs::read_to_string(&include_path)
+                .map_err(|e| format!("Failed to include {:?}: {}", include_path, e))?;
+
+            Ok(ResolvedInclude {
+                resolved_name: include_path.to_string_lossy().into_owned(),
+                content,
+            })
+        });
 
         let artifact = self.compiler.compile_into_spirv(
             &src, 

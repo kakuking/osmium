@@ -312,7 +312,7 @@ impl Renderer {
         assets: &mut AssetManager,
         render_items: &Vec<RenderItem>,
         globals: RenderGlobals,
-        gui: &mut OsmiumGUI
+        gui: Option<&mut OsmiumGUI>
     ) {
         if self.frame_state.recreate_swapchain {
             self.recreate_swapchain(
@@ -420,7 +420,7 @@ impl Renderer {
         global_descriptor_set: Arc<PersistentDescriptorSet>,
         shadow_manager: &ShadowManager,
         globals: &RenderGlobals,
-        gui: &mut OsmiumGUI
+        gui: Option<&mut OsmiumGUI>
     ) -> Arc<PrimaryAutoCommandBuffer> {
         let clear_color = [1.0, 1.0, 1.0, 1.0];
 
@@ -573,24 +573,26 @@ impl Renderer {
             }
         }
 
-        let gui_cb = gui.render(
-            framebuffer.extent()
-        );
-
-        builder
-            .next_subpass(
-                SubpassEndInfo::default(), 
-                SubpassBeginInfo {
-                    contents: SubpassContents::SecondaryCommandBuffers,
-                    ..Default::default()
-                },
-            )
-            .unwrap();
-
-        builder
-            .execute_commands(gui_cb)
-            .unwrap();
-
+        if let Some(gui) = gui {
+            let gui_cb = gui.render(
+                framebuffer.extent()
+            );
+    
+            builder
+                .next_subpass(
+                    SubpassEndInfo::default(), 
+                    SubpassBeginInfo {
+                        contents: SubpassContents::SecondaryCommandBuffers,
+                        ..Default::default()
+                    },
+                )
+                .unwrap();
+    
+            builder
+                .execute_commands(gui_cb)
+                .unwrap();
+        }
+        
         builder
             .end_render_pass(SubpassEndInfo::default())
             .unwrap();

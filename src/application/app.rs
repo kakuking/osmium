@@ -1,4 +1,4 @@
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use winit::{
     event::{
@@ -12,18 +12,27 @@ use winit::{
 };
 
 use crate::{
-    application::gui::OsmiumGUI, engine::{
+    application::{
+        ecs::{
+            components::osmium_camera::OsmiumCameraController, 
+            systems::osmium_camera_controller_system::OsmiumCameraControllerSystem
+        }, 
+        gui::OsmiumGUI
+    }, 
+    engine::{
         config::{
             camera_config::CameraConfig, material_config::MaterialConfig, mesh_config::MeshConfig, renderer_config::RendererConfig
         }, ecs::{
             components::{
-                camera::Camera, default_first_person_controller::FirstPersonController, renderable::MeshRenderable, transform::Transform
+                camera::Camera, 
+                renderable::MeshRenderable, 
+                transform::Transform
             }, 
             coordinator::Coordinator, 
             ecs::{
                 initialize_default_components, 
                 initialize_default_systems
-            },
+            }, signature::Signature,
         }, 
         renderer::renderer::Renderer, 
         scene::{asset_manager::AssetManager, mesh::Mesh}, 
@@ -61,6 +70,25 @@ impl OsmiumEngine {
 
         initialize_default_components(&mut coordinator);
         initialize_default_systems(&mut coordinator);
+
+        coordinator.register_component::<OsmiumCameraController>();
+
+        {
+            coordinator.register_system::<OsmiumCameraControllerSystem>();
+
+            let mut signature = Signature::new();
+            signature.set(
+                coordinator.get_component_type::<Transform>() as usize, 
+                true
+            );
+            signature.set(
+                coordinator.get_component_type::<OsmiumCameraController>() as usize, 
+                true
+            );
+
+            coordinator.set_system_signature::<OsmiumCameraControllerSystem>(signature);
+        }
+
 
         let mut asset_manager = Self::initialize_scene(&mut coordinator);
 
@@ -148,7 +176,7 @@ impl OsmiumEngine {
 
             coordinator.add_component(
                 entity, 
-                FirstPersonController::new()
+                OsmiumCameraController::new()
             );
         }
 
@@ -158,13 +186,15 @@ impl OsmiumEngine {
     pub unsafe fn run(self) {
         let mut renderer = self.renderer;
         let mut asset_manager = self.asset_manager;
-        let event_loop = self.event_loop;
-        let config = self.config;
         let mut coordinator = self.coordinator;
         let mut gui = self.gui;
+        let event_loop = self.event_loop;
+        let config = self.config;
 
-        let delta_time = Duration::from_secs_f64(1.0 / config.target_fps as f64)
-            .as_secs_f32();
+        let mut last_frame_time = Instant::now();
+
+        let mut fps_timer = Instant::now();
+        let mut frame_count: u32 = 0;
 
         event_loop.run(move |
             event, 
@@ -185,6 +215,9 @@ impl OsmiumEngine {
                 Event::WindowEvent { event, .. } => {
                     gui.update(&event);
 
+                    let pointer_captured = gui.wants_pointer_input();
+                    let keyboard_captured = gui.wants_keyboard_input();
+
                     match event {
                         WindowEvent::CloseRequested => {
                             *control_flow = ControlFlow::Exit;
@@ -193,10 +226,12 @@ impl OsmiumEngine {
                         WindowEvent::Resized(size) => {
                             renderer.resize(size.width, size.height);
 
-                            coordinator.send_event(EngineEvent::WindowResized {
-                                width: size.width,
-                                height: size.height,
-                            });
+                            coordinator.send_event(
+                                EngineEvent::WindowResized {
+                                    width: size.width,
+                                    height: size.height,
+                                }
+                            );
                         }
 
                         WindowEvent::KeyboardInput {
@@ -208,31 +243,39 @@ impl OsmiumEngine {
                                 },
                             ..
                         } => {
-                            match state {
-                                ElementState::Pressed => {
-                                    coordinator.send_event(EngineEvent::KeyPressed(key));
-                                }
-                                ElementState::Released => {
-                                    coordinator.send_event(EngineEvent::KeyReleased(key));
+                            if !keyboard_captured {
+                                match state {
+                                    ElementState::Pressed => {
+                                        coordinator.send_event(EngineEvent::KeyPressed(key));
+                                    }
+                                    ElementState::Released => {
+                                        coordinator.send_event(EngineEvent::KeyReleased(key));
+                                    }
                                 }
                             }
                         }
                         WindowEvent::MouseInput { state, button, .. } => {
-                            match state {
-                                ElementState::Pressed => {
-                                    coordinator.send_event(EngineEvent::MousePressed(button));
-                                }
-                                ElementState::Released => {
-                                    coordinator.send_event(EngineEvent::MouseReleased(button));
+                            if !pointer_captured {
+                                match state {
+                                    ElementState::Pressed => {
+                                        coordinator.send_event(EngineEvent::MousePressed(button));
+                                    }
+                                    ElementState::Released => {
+                                        coordinator.send_event(EngineEvent::MouseReleased(button));
+                                    }
                                 }
                             }
                         }
 
                         WindowEvent::CursorMoved { position, .. } => {
-                            coordinator.send_event(EngineEvent::MouseMoved {
-                                x: position.x,
-                                y: position.y,
-                            });
+                            if !pointer_captured {
+                                coordinator.send_event(EngineEvent::MouseMoved 
+                                    {
+                                        x: position.x,
+                                        y: position.y,
+                                    }
+                                );
+                            }
                         }
 
                         _ => {}
@@ -248,8 +291,27 @@ impl OsmiumEngine {
                 }
 
                 Event::RedrawRequested(_) => {
-                    coordinator
-                        .update_systems(delta_time);
+                    let now = Instant::now();
+
+                    let delta_time = now
+                        .duration_since(last_frame_time)
+                        .as_secs_f32();
+
+                    last_frame_time = now;
+
+                    frame_count += 1;
+
+                    if fps_timer.elapsed() >= Duration::from_secs(1) && config.print_fps {
+                        let elapsed = fps_timer.elapsed().as_secs_f32();
+                        let fps = frame_count as f32 / elapsed;
+
+                        println!("FPS: {:.1}", fps);
+
+                        frame_count = 0;
+                        fps_timer = now;
+                    }
+
+                    coordinator.update_systems(delta_time);
 
                     let extent = coordinator.window_manager.get_inner_size();
                     let aspect_ratio = extent.width as f32 / extent.height.max(1) as f32;
@@ -264,7 +326,7 @@ impl OsmiumEngine {
                         &mut asset_manager,
                         &render_items,
                         global_resources,
-                        &mut gui
+                        Some(&mut gui)
                     );
 
                     coordinator.clear_frame_events();
