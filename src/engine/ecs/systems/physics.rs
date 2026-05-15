@@ -86,7 +86,7 @@ impl SystemTrait for PhysicsSystem {
         &mut self.entities
     }
 
-    fn initialize(&self, world: &mut WorldCoordinator) {
+    fn initialize(&mut self, world: &mut WorldCoordinator) {
         let entities: Vec<Entity> = self.entities.iter().copied().collect();
 
         for entity in entities {

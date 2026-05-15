@@ -1,1 +1,2 @@
 pub mod osmium_camera_controller_system;
+pub mod osmium_object_system;

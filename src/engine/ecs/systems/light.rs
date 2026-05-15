@@ -36,7 +36,7 @@ impl SystemTrait for LightSystem {
         &mut self.entities
     }
 
-    fn initialize(&self, world: &mut WorldCoordinator) {
+    fn initialize(&mut self, world: &mut WorldCoordinator) {
         for entity in self.entities().iter().copied() {
             let transform = *world.get_component::<Transform>(entity);
 

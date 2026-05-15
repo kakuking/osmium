@@ -9,7 +9,7 @@ pub trait SystemTrait {
     fn entities(&self) -> &HashSet<Entity>;
     fn entities_mut(&mut self) -> &mut HashSet<Entity>;
 
-    fn initialize(&self, _world: &mut WorldCoordinator) {}
+    fn initialize(&mut self, _world: &mut WorldCoordinator) {}
 
     fn update(&self, entity: Entity, world: &mut WorldCoordinator, dt: f32);
     fn update_all_entities(&self, world: &mut WorldCoordinator, dt: f32) {

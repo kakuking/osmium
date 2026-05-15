@@ -28,33 +28,36 @@ use vulkano::{
     }
 };
 
-use crate::{application::gui::OsmiumGUI, engine::{
-    config::renderer_config::RendererConfig, 
-    ecs::components::renderable::{
-        ColorPushConstants, 
-        ShadowPushConstants
-    }, 
-    renderer::{
-        buffer_manager::BufferManager, 
-        descriptor_manager::DescriptorManager, 
-        global_resources::{
-            GlobalResources, 
-            RenderGlobals
+use crate::{
+    application::gui::gui::OsmiumGUI, 
+    engine::{
+        config::renderer_config::RendererConfig, 
+        ecs::components::renderable::{
+            ColorPushConstants, 
+            ShadowPushConstants
         }, 
-        image_manager::ImageManager, 
-        render_pass_constructor::RenderPassConstructor, 
-        shader_manager::ShaderManager, 
-        shadow_manager::ShadowManager, 
-        swapchain_manager::SwapchainManager, 
-        vulkan_context::VulkanContext
-    }, scene::{
-        asset_manager::{
-            AssetManager, ShaderKindKey
+        renderer::{
+            buffer_manager::BufferManager, 
+            descriptor_manager::DescriptorManager, 
+            global_resources::{
+                GlobalResources, 
+                RenderGlobals
+            }, 
+            image_manager::ImageManager, 
+            render_pass_constructor::RenderPassConstructor, 
+            shader_manager::ShaderManager, 
+            shadow_manager::ShadowManager, 
+            swapchain_manager::SwapchainManager, 
+            vulkan_context::VulkanContext
+        }, scene::{
+            asset_manager::{
+                AssetManager, ShaderKindKey
+            }, 
+            render_item::RenderItem
         }, 
-        render_item::RenderItem
-    }, 
-    window::window_manager::WindowManager
-}};
+        window::window_manager::WindowManager
+    }
+};
 
 pub type OsmiumFuture = FenceSignalFuture<
     PresentFuture<Box<dyn GpuFuture>>

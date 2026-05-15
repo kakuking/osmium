@@ -14,10 +14,10 @@ use winit::{
 use crate::{
     application::{
         ecs::{
-            components::osmium_camera::OsmiumCameraController, 
-            systems::osmium_camera_controller_system::OsmiumCameraControllerSystem
+            components::{osmium_camera::OsmiumCameraController, osmium_object::OsmiumObject}, 
+            systems::{osmium_camera_controller_system::OsmiumCameraControllerSystem, osmium_object_system::OsmiumObjectSystem}
         }, 
-        gui::OsmiumGUI
+        gui::gui::OsmiumGUI
     }, 
     engine::{
         config::{
@@ -75,6 +75,7 @@ impl OsmiumEngine {
         initialize_default_systems(&mut coordinator);
 
         coordinator.register_component::<OsmiumCameraController>();
+        coordinator.register_component::<OsmiumObject>();
 
         {
             coordinator.register_system::<OsmiumCameraControllerSystem>();
@@ -90,6 +91,19 @@ impl OsmiumEngine {
             );
 
             coordinator.set_system_signature::<OsmiumCameraControllerSystem>(signature);
+        }
+
+        {
+            coordinator.register_system::<OsmiumObjectSystem>();
+
+            let mut signature = Signature::new();
+
+            signature.set(
+                coordinator.get_component_type::<OsmiumObject>() as usize, 
+                true
+            );
+
+            coordinator.set_system_signature::<OsmiumObjectSystem>(signature);
         }
 
 
@@ -126,6 +140,20 @@ impl OsmiumEngine {
 
         let material_config = MaterialConfig::new();
         let material_handle = asset_manager.add_material_config(material_config);
+
+        let root_entity = {
+            let entity = coordinator.create_entity();
+
+            coordinator.add_component(
+                entity, 
+                OsmiumObject::new_isolated(
+                    "root", 
+                    entity
+                )
+            );
+
+            entity
+        };
         
         {
             let mut mesh_config = MeshConfig::new();
@@ -155,6 +183,18 @@ impl OsmiumEngine {
                 entity, 
                 transform
             );
+
+            let entity_object = OsmiumObject::init(
+                "plane mesh", 
+                entity, 
+                root_entity, 
+                coordinator
+            );
+
+            coordinator.add_component(
+                entity, 
+                entity_object
+            );
         }
 
         // camera
@@ -180,6 +220,18 @@ impl OsmiumEngine {
             coordinator.add_component(
                 entity, 
                 OsmiumCameraController::new()
+            );
+
+            let entity_object = OsmiumObject::init(
+                "camera", 
+                entity, 
+                root_entity, 
+                coordinator
+            );
+
+            coordinator.add_component(
+                entity, 
+                entity_object
             );
         }
 
@@ -331,7 +383,7 @@ impl OsmiumEngine {
                     let global_resources = coordinator.get_global_resources(aspect_ratio);
                     let render_items = coordinator.get_render_items();
 
-                    gui.create_ui();
+                    gui.generate_ui(&mut coordinator);
 
                     renderer.render(
                         &coordinator.window_manager,
